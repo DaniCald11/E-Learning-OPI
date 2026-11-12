@@ -1,0 +1,50 @@
+name: Foundation and identity
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  phase1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies and prepare private local configuration
+        run: python3 scripts/dev.py setup
+      - name: Validate foundation
+        run: bash scripts/check-phase0.sh
+      - name: Migrate SQL and provision one administrator
+        run: python3 scripts/dev.py migrate
+      - name: SQL integration tests
+        run: python3 scripts/dev.py test
+      - name: Frontend build, lint and tests
+        working-directory: frontend
+        run: |
+          npm run build
+          npm run lint
+          npm test
+      - name: Install Chromium for browser tests
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests against real API and SQL
+        run: |
+          python3 scripts/dev.py api > "$RUNNER_TEMP/api.log" 2>&1 &
+          api_pid=$!
+          python3 scripts/dev.py frontend > "$RUNNER_TEMP/frontend.log" 2>&1 &
+          frontend_pid=$!
+          trap 'kill "$api_pid" "$frontend_pid" 2>/dev/null || true' EXIT
+          python3 scripts/wait-dev.py
+          cd frontend
+          npm run test:e2e
+      - name: Stop SQL without deleting volumes
+        if: always()
+        run: docker compose stop sqlserver

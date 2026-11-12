@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/coverage/
+*.user
+*.suo
+.DS_Store
+.data/
+**/playwright-report/
+**/test-results/
+**/TestResults/
+**/*.tsbuildinfo
