@@ -2,9 +2,9 @@
 
 Plataforma e-learning de una organización, en español de México.
 
-**Fase 1 — fundamentos e identidad.** Solución .NET 10 por capas, React/TypeScript,
+**Fase 2 — catálogo y administración, con identidad y nuevo diseño.** Solución .NET 10 por capas, React/TypeScript,
 SQL Server, registro/confirmación/login, recuperación, perfil y roles Admin/Student.
-Un único administrador, cookies y CSRF. Catálogo y cursos esperan Fase 2 autorizada.
+Un único administrador, cookies y CSRF. Catálogo público, cursos reutilizables, cuestionarios, biblioteca privada y publicación versionada. Las compras esperan Fase 3 autorizada.
 
 Desde la raíz:
 ```bash
@@ -30,3 +30,7 @@ Invariantes de fases siguientes: cursos de taller excluidos de venta individual;
 progreso compartido sin duplicar cursos ni matrículas; avance con videos terminados,
 mejor nota ≥80 e intentos ilimitados; un certificado final por taller. Sin Drip,
 Multi-Tenant, instructores ni funciones posteriores no autorizadas.
+
+- [Vista del nuevo diseño](docs/design-preview.md).
+- [Decisiones de catálogo y versiones](docs/decisions/0004-catalog-and-design.md).
+- [Entrega y validación de Fase 2](docs/phase2-validation.md).

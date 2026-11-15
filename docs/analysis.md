@@ -83,3 +83,10 @@ Cloudflare R2 y Amazon SES; véase ADR 0001 para motivos, requisitos y fases.
 Ya no es pendiente elegir proveedor de video, objetos o correo. Sí siguen
 pendientes cuentas, dominio/remitente, región SES y credenciales seguras, además
 de la verificación de las integraciones cuando se implementen.
+
+## Acuerdos recibidos al iniciar Fase 2
+
+Confirmados: conservar versiones anteriores sin traslado automático de progreso;
+todos los cursos de taller obligatorios. Quedan resueltas esas dudas para el MVP.
+Persisten requisitos de certificaciones, transición de ventas históricas y acceso
+por recorridos diferentes para fases posteriores. Véase ADR 0004.

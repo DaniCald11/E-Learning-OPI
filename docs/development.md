@@ -112,3 +112,48 @@ posteriormente. Mantener claves Data Protection y protegerlas en reposo antes de
 producción. Las migraciones se ejecutan por una tarea privilegiada independiente.
 SES requiere remitente/dominio verificado y autorización de envío; envío real
 pendiente porque no hay una cuenta configurada. No usar adaptadores Development.
+
+## Fase 2 — catálogo y administración
+
+Conservar .data/development.json y el volumen SQL. Ejecutar `python3 scripts/dev.py
+setup` para restaurar lockfiles actualizados y después `python3 scripts/dev.py migrate`
+para la migración de catálogo. Arrancar API y frontend como antes.
+
+Rutas: /catalogo, /formacion/:slug, /admin/formaciones, /admin/cursos y
+/admin/biblioteca. Entrar con el administrador local para editar. Subir archivos,
+crear curso y jerarquía, asociar materiales, preparar cuestionario si será parte de
+un taller, guardar y publicar curso. Luego crear formación, categoría, composición,
+precio y portada; guardar y publicar. Reutilizar un curso en varios talleres no lo
+copia. La composición de un taller es enteramente obligatoria en este MVP.
+
+El nuevo E2E crea un video WebM real desde canvas/MediaRecorder en Chromium, lo
+sube, crea curso+cuestionario, publica taller y comprueba el catálogo como visitante.
+No necesita ffmpeg ni servicios externos. Todos los registros llevan "de prueba";
+no son cursos ni precios comerciales reales.
+
+### Cloudflare para medios reales
+
+LocalMediaStorage es exclusivo Development. Para usar proveedores reales configurar
+Media__Provider=Cloudflare y los siguientes valores en el mecanismo seguro de
+configuración del despliegue, sin valores secretos en el repositorio/chat:
+
+- Media__AccountId: cuenta Cloudflare.
+- Media__R2Bucket: bucket privado, sin acceso público.
+- Media__R2AccessKeyId y Media__R2SecretAccessKey: credenciales S3 de permisos mínimos.
+- Media__StreamApiToken: token limitado a Stream de esa cuenta.
+- Media__StreamCustomerCode: código del dominio de reproducción.
+- Media__StreamSigningKeyId y Media__StreamSigningKeyPath: ID y ruta al PEM privado.
+
+R2 usa firma SigV4 local: necesita una credencial utilizable por el SDK, no un texto
+placeholder de proxy. La clave PEM no se guarda en Git. Red necesaria: api.cloudflare.com,
+<cuenta>.r2.cloudflarestorage.com y customer-<código>.cloudflarestream.com. Configurar
+solo los destinos reales; no abrir Internet de forma general para esta integración.
+
+Stream exige URLs firmadas y genera acceso de diez minutos tras autorización Admin.
+Mientras procesa un video, usar Actualizar procesamiento en la biblioteca. Los medios
+sin estado Ready bloquean publicación. R2 entrega imágenes/PDF mediante la API;
+no se expone StorageKey a visitantes. El bucket debe seguir privado.
+
+No se configuraron cuentas ni se validaron cargas reales R2/Stream en esta instancia.
+Antes de producción comprobar subida, procesamiento, firma, caducidad y permisos de
+bucket con las cuentas elegidas. SES sigue pendiente de remitente/cuenta verificados.

@@ -1,127 +1,272 @@
-using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Amazon;
 using Amazon.SimpleEmailV2;
 using EduLearning.Application.Auth;
+using EduLearning.Application.Catalog;
 using EduLearning.Domain.Identity;
+using EduLearning.Infrastructure.Catalog;
 using EduLearning.Infrastructure.Email;
 using EduLearning.Infrastructure.Identity;
 using EduLearning.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 var development = builder.Environment.IsDevelopment();
 var publicUrl = builder.Configuration["App:PublicUrl"];
-if (!Uri.TryCreate(publicUrl, UriKind.Absolute, out var appUri) ||
-    (!development && appUri.Scheme != "https") || appUri.Scheme is not ("http" or "https"))
-    throw new InvalidOperationException("Configura App:PublicUrl; HTTPS es obligatorio fuera de desarrollo.");
+if (
+    !Uri.TryCreate(publicUrl, UriKind.Absolute, out var appUri)
+    || (!development && appUri.Scheme != "https")
+    || appUri.Scheme is not ("http" or "https")
+)
+    throw new InvalidOperationException(
+        "Configura App:PublicUrl; HTTPS es obligatorio fuera de desarrollo."
+    );
 var connection = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("Falta ConnectionStrings:DefaultConnection.");
 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connection));
-builder.Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
-{
-    options.User.RequireUniqueEmail = true;
-    options.Password.RequiredLength = 12;
-    options.SignIn.RequireConfirmedEmail = true;
-    options.Lockout.MaxFailedAccessAttempts = 5;
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-}).AddEntityFrameworkStores<ApplicationDbContext>().AddDefaultTokenProviders();
-builder.Services.Configure<DataProtectionTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromHours(1));
-builder.Services.Configure<SecurityStampValidatorOptions>(options => options.ValidationInterval = TimeSpan.Zero);
+builder
+    .Services.AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
+    {
+        options.User.RequireUniqueEmail = true;
+        options.Password.RequiredLength = 12;
+        options.SignIn.RequireConfirmedEmail = true;
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    })
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromHours(1)
+);
+builder.Services.Configure<SecurityStampValidatorOptions>(options =>
+    options.ValidationInterval = TimeSpan.Zero
+);
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.Name = "EduLearning.Session";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
-    options.Cookie.SecurePolicy = development ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = development
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
-    options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
-    options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.StatusCode = 401;
+        return Task.CompletedTask;
+    };
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.StatusCode = 403;
+        return Task.CompletedTask;
+    };
     options.Events.OnValidatePrincipal = async context =>
     {
         await SecurityStampValidator.ValidatePrincipalAsync(context);
-        if (context.Principal?.Identity?.IsAuthenticated != true) return;
-        var manager = context.HttpContext.RequestServices.GetRequiredService<UserManager<ApplicationUser>>();
+        if (context.Principal?.Identity?.IsAuthenticated != true)
+            return;
+        var manager = context.HttpContext.RequestServices.GetRequiredService<
+            UserManager<ApplicationUser>
+        >();
         var user = await manager.GetUserAsync(context.Principal);
-        if (user is null || !user.IsActive || (context.Principal.IsInRole(UserRoles.Admin) && user.AdminSlot != 1))
+        if (
+            user is null
+            || !user.IsActive
+            || (context.Principal.IsInRole(UserRoles.Admin) && user.AdminSlot != 1)
+        )
         {
             context.RejectPrincipal();
-            await context.HttpContext.RequestServices.GetRequiredService<SignInManager<ApplicationUser>>().SignOutAsync();
+            await context
+                .HttpContext.RequestServices.GetRequiredService<SignInManager<ApplicationUser>>()
+                .SignOutAsync();
         }
     };
 });
 var keyPath = builder.Configuration["DataProtection:Path"];
-if (string.IsNullOrWhiteSpace(keyPath)) throw new InvalidOperationException("Configura DataProtection:Path en almacenamiento privado persistente.");
+if (string.IsNullOrWhiteSpace(keyPath))
+    throw new InvalidOperationException(
+        "Configura DataProtection:Path en almacenamiento privado persistente."
+    );
 Directory.CreateDirectory(keyPath);
-if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(keyPath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-builder.Services.AddDataProtection().SetApplicationName("EduLearning").PersistKeysToFileSystem(new DirectoryInfo(keyPath));
+if (!OperatingSystem.IsWindows())
+    File.SetUnixFileMode(
+        keyPath,
+        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
+    );
+builder
+    .Services.AddDataProtection()
+    .SetApplicationName("EduLearning")
+    .PersistKeysToFileSystem(new DirectoryInfo(keyPath));
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-CSRF-TOKEN";
     options.Cookie.Name = "EduLearning.Antiforgery";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
-    options.Cookie.SecurePolicy = development ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = development
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
 });
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("Admin", policy => policy.RequireAuthenticatedUser().RequireRole(UserRoles.Admin));
-    options.AddPolicy("Student", policy => policy.RequireAuthenticatedUser().RequireRole(UserRoles.Student));
+    options.AddPolicy("Admin", policy =>
+        policy.RequireAuthenticatedUser().RequireRole(UserRoles.Admin)
+    );
+    options.AddPolicy("Student", policy =>
+        policy.RequireAuthenticatedUser().RequireRole(UserRoles.Student)
+    );
 });
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
-    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        { PermitLimit = builder.Configuration.GetValue("Auth:RateLimit", 20), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy("auth", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("Auth:RateLimit", 20),
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }
+        )
+    );
 });
-builder.Services.AddControllers().AddJsonOptions(options =>
-    options.JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow);
+builder
+    .Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow;
+        options.JsonSerializerOptions.Converters.Add(
+            new JsonStringEnumConverter(allowIntegerValues: false)
+        );
+    });
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.ApiBehaviorOptions>(options =>
+    options.InvalidModelStateResponseFactory =
+        context => new Microsoft.AspNetCore.Mvc.BadRequestObjectResult(
+            new Microsoft.AspNetCore.Mvc.ValidationProblemDetails(context.ModelState)
+            {
+                Title = "Revisa los datos de la solicitud.",
+                Status = 400,
+            }
+        )
+);
 builder.Services.AddProblemDetails();
-if (development) builder.Services.AddOpenApi();
+if (development)
+    builder.Services.AddOpenApi();
 builder.Services.AddScoped<IIdentityService, IdentityService>();
+builder.Services.AddScoped<ICatalogService, CatalogService>();
+builder.Services.AddScoped<LocalMediaStorage>();
+builder.Services.AddScoped<PrivateMediaStorage>();
+builder.Services.AddHttpClient("Cloudflare", client => client.Timeout = TimeSpan.FromMinutes(5));
 builder.Services.AddScoped<DatabaseInitializer>();
 var emailProvider = builder.Configuration["Email:Provider"];
 if (emailProvider == "Development" && development)
     builder.Services.AddScoped<ITransactionalEmail, DevelopmentEmail>();
-else if (emailProvider == "SES" && !string.IsNullOrWhiteSpace(builder.Configuration["Email:From"]) &&
-         !string.IsNullOrWhiteSpace(builder.Configuration["Email:Region"]))
+else if (
+    emailProvider == "SES"
+    && !string.IsNullOrWhiteSpace(builder.Configuration["Email:From"])
+    && !string.IsNullOrWhiteSpace(builder.Configuration["Email:Region"])
+)
 {
-    builder.Services.AddSingleton<IAmazonSimpleEmailServiceV2>(_ => new AmazonSimpleEmailServiceV2Client(RegionEndpoint.GetBySystemName(builder.Configuration["Email:Region"])));
+    builder.Services.AddSingleton<IAmazonSimpleEmailServiceV2>(
+        _ => new AmazonSimpleEmailServiceV2Client(
+            RegionEndpoint.GetBySystemName(builder.Configuration["Email:Region"])
+        )
+    );
     builder.Services.AddScoped<ITransactionalEmail, SesEmail>();
 }
-else throw new InvalidOperationException("Configura SES para correo; el adaptador Development solo se permite en Development.");
+else
+    throw new InvalidOperationException(
+        "Configura SES para correo; el adaptador Development solo se permite en Development."
+    );
 var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
-if (!development) { app.UseHsts(); app.UseHttpsRedirection(); }
+if (!development)
+{
+    app.UseHsts();
+    app.UseHttpsRedirection();
+}
 app.UseRouting();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.Use(async (context, next) =>
-{
-    if (context.Request.Path.StartsWithSegments("/api") &&
-        !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method) && !HttpMethods.IsOptions(context.Request.Method))
+app.Use(
+    async (context, next) =>
     {
-        try { await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context); }
-        catch (AntiforgeryValidationException)
+        if (
+            context.Request.Path.StartsWithSegments("/api")
+            && !HttpMethods.IsGet(context.Request.Method)
+            && !HttpMethods.IsHead(context.Request.Method)
+            && !HttpMethods.IsOptions(context.Request.Method)
+        )
         {
-            await Results.Problem(statusCode: 400, title: "Token CSRF inválido o ausente.").ExecuteAsync(context);
-            return;
+            try
+            {
+                await context
+                    .RequestServices.GetRequiredService<IAntiforgery>()
+                    .ValidateRequestAsync(context);
+            }
+            catch (AntiforgeryValidationException)
+            {
+                await Results
+                    .Problem(statusCode: 400, title: "Token CSRF inválido o ausente.")
+                    .ExecuteAsync(context);
+                return;
+            }
+        }
+        await next();
+    }
+);
+app.Use(
+    async (context, next) =>
+    {
+        try
+        {
+            await next();
+        }
+        catch (CatalogException error)
+        {
+            await Results
+                .Problem(statusCode: error.Status, title: error.Message)
+                .ExecuteAsync(context);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await Results
+                .Problem(
+                    statusCode: 409,
+                    title: "El borrador cambió. Recarga e inténtalo de nuevo."
+                )
+                .ExecuteAsync(context);
+        }
+        catch (DbUpdateException error)
+            when (error.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            await Results
+                .Problem(
+                    statusCode: 409,
+                    title: "Ya existe un registro con ese identificador o slug."
+                )
+                .ExecuteAsync(context);
         }
     }
-    await next();
-});
+);
 app.MapControllers();
-if (development) app.MapOpenApi();
+if (development)
+    app.MapOpenApi();
 app.MapGet("/api/v1/health", async (ApplicationDbContext db) =>
-    await db.Database.CanConnectAsync() ? Results.Ok(new { status = "ready" }) : Results.Problem(statusCode: 503));
+    await db.Database.CanConnectAsync()
+        ? Results.Ok(new { status = "ready" })
+        : Results.Problem(statusCode: 503)
+);
+
 // Migration/initialization is explicit, never silently applied on normal startup.
 if (args.Contains("--migrate"))
 {
@@ -131,4 +276,5 @@ if (args.Contains("--migrate"))
     return;
 }
 app.Run();
+
 public partial class Program { }

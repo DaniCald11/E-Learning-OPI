@@ -1,6 +1,6 @@
 # Plan de implementación por fases
 
-Fases 0 y 1 autorizadas; Fase 0 cerrada. Cada fase se entrega con evidencia y revisión; la siguiente
+Fases 0, 1 y 2 autorizadas; fases 0 y 1 cerradas. Cada fase se entrega con evidencia y revisión; la siguiente
 requiere autorización expresa del usuario.
 
 | Fase | Entregables | Criterio de salida |
@@ -41,9 +41,21 @@ Fuera de alcance: Drip, Multi-Tenant, instructores y demás funciones posteriore
 ## Cierre de Fase 0
 
 SQL Server descargado, consultas y persistencia tras recrear el contenedor
-validadas. Véase phase0-validation.md. La Fase 1 fue autorizada por el usuario y está implementándose; Fase 2 requiere nueva autorización.
+validadas. Véase phase0-validation.md. Fase 1 entregada. El usuario autorizó Fase 2 y confirmó conservación de versiones y todos los cursos obligatorios en talleres.
 
 ## Entrega de Fase 1
 
 Identidad, persistencia y frontend implementados; véase phase1-validation.md para
-los archivos, pruebas y limitaciones. Fase 2 pendiente de revisión y autorización.
+los archivos, pruebas y limitaciones. Fase 2 autorizada y en implementación; la siguiente fase requiere nueva autorización.
+
+## Confirmaciones de Fase 2
+
+Versiones anteriores conservadas, sin traslado automático de progreso; todos los
+cursos de taller obligatorios. Se añade el rediseño solicitado. Consulte ADR 0004
+y phase2-validation.md. Fase 3 espera revisión y autorización.
+
+## Entrega de Fase 2 y rediseño
+
+Catálogo, editor y biblioteca local validados; consulte phase2-validation.md.
+Adaptadores externos implementados, verificación real pendiente de configuración.
+Fase 3 no iniciada y requiere autorización tras revisar esta entrega.

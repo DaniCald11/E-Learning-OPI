@@ -29,3 +29,34 @@ solo shells de cuenta; todavía no muestran datos de cursos o KPIs.
 
 OpenAPI disponible solo en Development en GET /openapi/v1.json. No se publica
 el esquema automáticamente fuera de desarrollo.
+
+# API de catálogo — Fase 2
+
+| Método | Ruta /api/v1 | Regla |
+|---|---|---|
+| GET | /categories | Categorías activas |
+| GET | /products | Publicados; search/type/category/sort/page/pageSize, máximo 50 |
+| GET | /products/{slug} | Snapshot publicado y temario público sin archivos ni respuestas |
+| GET | /media/{id}/cover | Solo imagen usada como portada publicada |
+| GET/POST | /admin/categories | Listar/crear categorías |
+| GET/POST | /admin/courses | Listar/crear cursos |
+| GET/PUT | /admin/courses/{id} | Editar agregado con rowVersion |
+| POST | /admin/courses/{id}/publish | Validar y congelar CourseVersion |
+| POST | /admin/courses/{id}/archive | Archivar conservando versiones |
+| GET/POST | /admin/products | Listar/crear borradores |
+| GET/PUT | /admin/products/{id} | Editar con rowVersion |
+| POST | /admin/products/{id}/publish | Validación cruzada y versión inmutable |
+| POST | /admin/products/{id}/unpublish | Ocultar del catálogo, sin borrar versiones |
+| POST | /admin/products/{id}/duplicate | Nuevo borrador, mismos cursos |
+| GET/POST | /admin/media | Listar/cargar archivo multipart (file, folder) |
+| GET | /admin/media/{id}/content | Archivo privado o reproducción Stream firmada; Admin |
+| POST | /admin/media/{id}/refresh | Actualizar procesamiento Stream |
+
+Mutaciones siguen exigiendo CSRF, incluidas cargas multipart y PUT. Propiedades
+Type/Status se serializan como nombres, no números. Temas/módulos/lecciones y
+cuestionario se guardan juntos en el DTO de curso: evita actualizaciones parciales.
+Los endpoints del esquema inicial por subrecurso no se duplican como otra vía de
+edición; el editor usa el agregado con concurrencia y publicación explícita.
+
+La calificación, intentos, derechos de compra y finalización de alumnos no forman
+parte de estos endpoints. Ninguna ficha pública habilita una compra todavía.
