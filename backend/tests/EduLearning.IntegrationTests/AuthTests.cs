@@ -1148,4 +1148,212 @@ public sealed class AuthTests(AuthFixture fixture) : IClassFixture<AuthFixture>
             EduLearning.Application.Catalog.CatalogRules.ValidateCourse(course)
         );
     }
+
+    private static readonly byte[] PhotoPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a/csAAAAASUVORK5CYII="
+    );
+
+    private async Task<HttpResponseMessage> SendPhotoAsync(
+        HttpClient client,
+        string type = "image/png"
+    )
+    {
+        var token = await client.GetFromJsonAsync<JsonElement>("/api/v1/auth/csrf");
+        using var data = new MultipartFormDataContent();
+        var file = new ByteArrayContent(PhotoPng);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(type);
+        data.Add(file, "file", "profile.png");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/users/me/avatar")
+        {
+            Content = data,
+        };
+        request.Headers.Add("X-CSRF-TOKEN", token.GetProperty("token").GetString());
+        return await client.SendAsync(request);
+    }
+
+    [Fact]
+    public async Task Profile_bio_and_photo_persist_and_remain_private()
+    {
+        using var student = fixture.Client();
+        var email = await fixture.RegisterAsync(student);
+        await fixture.SendAsync(
+            student,
+            "/api/v1/auth/login",
+            new { email, password = fixture.Password }
+        );
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (
+                await fixture.SendAsync(
+                    student,
+                    "/api/v1/users/me",
+                    new { fullName = "Asesor de prueba", bio = "Profesional inmobiliario" },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        Assert.Equal(HttpStatusCode.NoContent, (await SendPhotoAsync(student)).StatusCode);
+        var profile = await student.GetFromJsonAsync<JsonElement>("/api/v1/users/me");
+        Assert.Equal("Profesional inmobiliario", profile.GetProperty("bio").GetString());
+        var url = profile.GetProperty("avatarUrl").GetString()!;
+        Assert.StartsWith("/api/v1/users/me/avatar?v=", url);
+        Assert.Equal(PhotoPng, await student.GetByteArrayAsync(url));
+        using var visitor = fixture.Client();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await visitor.GetAsync(url)).StatusCode);
+        using var other = fixture.Client();
+        var otherEmail = await fixture.RegisterAsync(other);
+        await fixture.SendAsync(
+            other,
+            "/api/v1/auth/login",
+            new { email = otherEmail, password = fixture.Password }
+        );
+        Assert.Equal(HttpStatusCode.NotFound, (await other.GetAsync(url)).StatusCode);
+        using var admin = await AdminAsync();
+        using var scope = fixture.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var avatar = await db
+            .Users.Where(x => x.Email == email)
+            .Select(x => x.AvatarMediaId)
+            .SingleAsync();
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await admin.GetAsync("/api/v1/admin/media/" + avatar + "/content")).StatusCode
+        );
+        Assert.DoesNotContain(
+            avatar!.Value.ToString(),
+            await admin.GetStringAsync("/api/v1/admin/media")
+        );
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (
+                await fixture.SendAsync(student, "/api/v1/users/me/avatar", null, HttpMethod.Delete)
+            ).StatusCode
+        );
+        Assert.Equal(HttpStatusCode.NotFound, (await student.GetAsync(url)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Profile_rejects_invalid_photo_types_and_oversized_bio()
+    {
+        using var client = await AdminAsync();
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (await SendPhotoAsync(client, "application/pdf")).StatusCode
+        );
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (
+                await fixture.SendAsync(
+                    client,
+                    "/api/v1/users/me",
+                    new { fullName = "Admin", bio = new string('x', 501) },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task Folders_exist_without_files_and_existing_media_can_be_moved()
+    {
+        using var admin = await AdminAsync();
+        var name = "Carpeta " + Guid.NewGuid().ToString("N");
+        var created = await fixture.SendAsync(admin, "/api/v1/admin/media-folders", new { name });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        Assert.Contains(name, await admin.GetStringAsync("/api/v1/admin/media-folders"));
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            (await fixture.SendAsync(admin, "/api/v1/admin/media-folders", new { name })).StatusCode
+        );
+        var media = await UploadVideoAsync(admin);
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media/" + media,
+                    new { folder = name },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        using var scope = fixture.Factory.Services.CreateScope();
+        Assert.Equal(
+            name,
+            (
+                await scope
+                    .ServiceProvider.GetRequiredService<ApplicationDbContext>()
+                    .MediaFiles.FindAsync(media)
+            )!.Folder
+        );
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media/" + media,
+                    new { folder = "No existe" },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        Assert.Equal(
+            HttpStatusCode.BadRequest,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media-folders",
+                    new { name = "../fuera" }
+                )
+            ).StatusCode
+        );
+        using var student = fixture.Client();
+        var email = await fixture.RegisterAsync(student);
+        await fixture.SendAsync(
+            student,
+            "/api/v1/auth/login",
+            new { email, password = fixture.Password }
+        );
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await student.GetAsync("/api/v1/admin/media-folders")).StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task Upgrade_keeps_existing_library_files_and_imports_folder_names()
+    {
+        using var scope = fixture.Factory.Services.CreateScope();
+        var original = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var connection = new SqlConnectionStringBuilder(original.Database.GetConnectionString())
+        {
+            InitialCatalog = "EduLearningUpgradeTest_" + Guid.NewGuid().ToString("N"),
+        };
+        await using var db = new ApplicationDbContext(
+            new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseSqlServer(connection.ConnectionString)
+                .Options
+        );
+        try
+        {
+            var migrator =
+                Microsoft.EntityFrameworkCore.Infrastructure.AccessorExtensions.GetService<Microsoft.EntityFrameworkCore.Migrations.IMigrator>(
+                    db
+                );
+            await migrator.MigrateAsync("20261115022646_CatalogAndImmutableVersions");
+            await db.Database.ExecuteSqlRawAsync(
+                "INSERT INTO MediaFiles (Id,OriginalFileName,ContentType,StorageKey,Provider,ProcessingStatus,SizeBytes,Folder,CreatedAtUtc) VALUES (NEWID(),'legacy.pdf','application/pdf','legacy','Local','Ready',10,' Ventas ',SYSUTCDATETIME()),(NEWID(),'legacy-two.pdf','application/pdf','legacy-two','Local','Ready',10,'Ventas',SYSUTCDATETIME());"
+            );
+            await migrator.MigrateAsync();
+            Assert.Equal(
+                2,
+                await db.MediaFiles.CountAsync(x => x.Kind == "Library" && x.Folder == "Ventas")
+            );
+            Assert.Equal(1, await db.MediaFolders.CountAsync(x => x.Name == "Ventas"));
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
 }

@@ -1,8 +1,11 @@
-# Dirección visual — revisión
+# Dirección visual — revisión de Fase 2
 
-Rediseño editorial original: tipografía con más jerarquía, verde profundo y lima,
-composición con profundidad, tarjetas y movimiento discreto. Material UI sigue
-siendo la biblioteca base. Referencias de dirección: Awwwards y 21st.dev.
+Paleta original conservada: verde profundo, fondo cálido y lima. Presentación
+orientada a formación profesional inmobiliaria, componentes Material UI y tipografía
+con jerarquía. La ilustración representa una construcción mediante trazos de plano.
+Las animaciones son discretas y acotadas: entrada suave, foco, transiciones de borde
+y sombra; no hay estrellas, giros ni elementos flotando continuamente.
+Se respeta prefers-reduced-motion.
 
 ## Inicio
 
@@ -12,14 +15,26 @@ siendo la biblioteca base. Referencias de dirección: Awwwards y 21st.dev.
 
 ![Acceso en escritorio](previews/login-desktop.png)
 
+## Panel administrativo
+
+![Biblioteca, cursos y formaciones](previews/admin.png)
+
+## Perfil personal
+
+![Nombre, foto y descripción opcional](previews/profile.png)
+
+Las vistas de panel/perfil usan una sesión ilustrativa con respuestas API simuladas
+(Perfil de ejemplo). Las pruebas con API y SQL reales se documentan por separado
+en [la validación](phase2-validation.md).
+
 ## Móvil
 
 ![Inicio en móvil](previews/home-mobile.png)
 
 Las capturas no contienen credenciales. El catálogo muestra únicamente formaciones
 publicadas por administración; no hay estadísticas ni productos comerciales ficticios
-precargados. Las pruebas de navegador crean contenido de prueba claramente rotulado.
+precargados. Las pruebas de navegador crean contenido rotulado «de prueba».
 
 Verificación de correo: crear cuenta → abrir enlace de confirmación → confirmar →
 iniciar sesión. Token de una hora. En desarrollo el mensaje se guarda en .data/mail;
-no se envía a una bandeja externa sin configurar SES. El diseño no cambia esa regla.
+no se envía a una bandeja externa sin configurar SES.

@@ -41,6 +41,7 @@ public sealed class MediaController(
         CancellationToken cancellationToken
     )
     {
+        folder = await MediaFoldersController.ResolveAsync(db, folder);
         await using var source = file.OpenReadStream();
         var media = await storage.SaveAsync(
             source,
@@ -73,10 +74,20 @@ public sealed class MediaController(
         );
     }
 
+    [HttpPatch("{id:guid}")]
+    public async Task<IActionResult> Move(Guid id, MoveMediaRequest input)
+    {
+        var media = await db.MediaFiles.SingleOrDefaultAsync(x => x.Id == id && x.Kind == "Library")
+            ?? throw new CatalogException("Archivo no encontrado.", 404);
+        media.Folder = await MediaFoldersController.ResolveAsync(db, input.Folder);
+        await db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/refresh")]
     public async Task<IActionResult> Refresh(Guid id)
     {
-        var media = await db.MediaFiles.SingleOrDefaultAsync(x => x.Id == id)
+        var media = await db.MediaFiles.SingleOrDefaultAsync(x => x.Id == id && x.Kind == "Library")
             ?? throw new CatalogException("Archivo no encontrado.", 404);
         await storage.RefreshAsync(media);
         await db.SaveChangesAsync();
@@ -86,7 +97,7 @@ public sealed class MediaController(
     [HttpGet("{id:guid}/content")]
     public async Task<IActionResult> Content(Guid id)
     {
-        var media = await db.MediaFiles.SingleOrDefaultAsync(x => x.Id == id)
+        var media = await db.MediaFiles.SingleOrDefaultAsync(x => x.Id == id && x.Kind == "Library")
             ?? throw new CatalogException("Archivo no encontrado.", 404);
         Response.Headers.CacheControl = "private, no-store";
         Response.Headers.XContentTypeOptions = "nosniff";
@@ -108,7 +119,7 @@ public sealed class PublicCoverController(ApplicationDbContext db, PrivateMediaS
     public async Task<IActionResult> Cover(Guid id)
     {
         var file = await db.MediaFiles.SingleOrDefaultAsync(x =>
-            x.Id == id && x.ContentType.StartsWith("image/")
+            x.Id == id && x.Kind == "Library" && x.ContentType.StartsWith("image/")
         ) ?? throw new CatalogException("Portada no encontrada.", 404);
         if (
             !await db.ProductVersions.AnyAsync(v =>

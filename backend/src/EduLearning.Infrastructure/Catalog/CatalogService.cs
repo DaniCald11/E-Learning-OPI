@@ -93,7 +93,9 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
     {
         var lessons = input.Topics.SelectMany(x => x.Modules).SelectMany(x => x.Lessons).ToArray();
         var ids = lessons.SelectMany(x => x.MediaIds).Distinct().ToArray();
-        var media = await db.MediaFiles.Where(x => ids.Contains(x.Id)).ToArrayAsync();
+        var media = await db
+            .MediaFiles.Where(x => ids.Contains(x.Id) && x.Kind == "Library")
+            .ToArrayAsync();
         if (publishing && media.Any(x => x.ProcessingStatus != "Ready"))
             throw new CatalogException("Espera a que termine el procesamiento de los materiales.");
         if (media.Length != ids.Length)
@@ -215,7 +217,9 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
         if (
             input.CoverMediaId.HasValue
             && !await db.MediaFiles.AnyAsync(x =>
-                x.Id == input.CoverMediaId && x.ContentType.StartsWith("image/")
+                x.Id == input.CoverMediaId
+                && x.Kind == "Library"
+                && x.ContentType.StartsWith("image/")
             )
         )
             throw new CatalogException("La portada debe ser una imagen de la biblioteca.");
@@ -484,7 +488,10 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
     }
 
     public async Task<MediaFile[]> MediaAsync() =>
-        await db.MediaFiles.OrderByDescending(x => x.CreatedAtUtc).ToArrayAsync();
+        await db
+            .MediaFiles.Where(x => x.Kind == "Library")
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .ToArrayAsync();
 
     public async Task<MediaFile> AddMediaAsync(MediaFile file)
     {

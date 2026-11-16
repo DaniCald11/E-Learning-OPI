@@ -25,7 +25,7 @@ test("admin crea curso con video y cuestionario, publica taller y visitante cons
     .fill(settings.BootstrapAdmin__Password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Administración", exact: true }),
+    page.getByRole("heading", { name: "Panel administrativo", exact: true }),
   ).toBeVisible();
   await page.goto("/admin/biblioteca");
   const bytes = await page.evaluate(async () => {

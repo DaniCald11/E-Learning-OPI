@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import type { SetStateAction } from "react";
+import { useEditorDraft } from "../features/catalog/useEditorDraft";
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -7,6 +14,7 @@ import {
   Checkbox,
   CircularProgress,
   MenuItem,
+  InputAdornment,
   Step,
   StepButton,
   Stepper,
@@ -39,7 +47,8 @@ const blank: ProductDraft = {
 export function ProductEditorPage() {
   const { id } = useParams();
   const [params] = useSearchParams();
-  const initialType: ProductType = params.get("tipo") === "Workshop" ? "Workshop" : "IndividualCourse";
+  const initialType: ProductType =
+    params.get("tipo") === "Workshop" ? "Workshop" : "IndividualCourse";
   const query = useQuery({
     queryKey: ["product-edit", id],
     enabled: Boolean(id),
@@ -48,16 +57,53 @@ export function ProductEditorPage() {
   if (id && query.isPending) return <CircularProgress />;
   if (id && query.isError)
     return <Alert severity="error">No se pudo cargar la formación.</Alert>;
-  return <ProductEditor key={id ?? "new-" + initialType} initial={query.data} initialType={initialType} />;
+  return (
+    <ProductEditor
+      key={id ?? "new-" + initialType}
+      initial={query.data}
+      initialType={initialType}
+    />
+  );
 }
-function ProductEditor({ initial, initialType }: { initial?: Product; initialType: ProductType }) {
-  const [draft, setDraft] = useState(initial?.draft ?? {...blank, type: initialType});
-  const [saved, setSaved] = useState(initial);
-  const [step, setStep] = useState(0);
-  const [dirty, setDirty] = useState(false);
-  const [error, setError] = useState("");
+function ProductEditor({
+  initial,
+  initialType,
+}: {
+  initial?: Product;
+  initialType: ProductType;
+}) {
+  const location = useLocation();
+  const editor = useEditorDraft(
+    "product:" + (initial?.id ?? "new-" + initialType),
+    {
+      draft: initial?.draft ?? { ...blank, type: initialType },
+      saved: initial,
+      step: typeof location.state?.step === "number" ? location.state.step : 0,
+      dirty: false as boolean,
+      priceInput: initial?.draft.price ? String(initial.draft.price) : "",
+    },
+  );
+  const { draft, saved, step, dirty, priceInput } = editor.state;
+  function setDraft(value: SetStateAction<ProductDraft>) {
+    editor.setState((old) => ({
+      ...old,
+      draft: typeof value === "function" ? value(old.draft) : value,
+    }));
+  }
+  function setSaved(value: Product) {
+    editor.setState((old) => ({ ...old, saved: value }));
+  }
+  function setStep(value: number) {
+    editor.setState((old) => ({ ...old, step: value }));
+  }
+  function setDirty(value: boolean) {
+    editor.setState((old) => ({ ...old, dirty: value }));
+  }
+  const [error, setError] = useState<string>(location.state?.editorError ?? "");
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState<string>(
+    location.state?.editorNotice ?? "",
+  );
   const navigate = useNavigate();
   const client = useQueryClient();
   const categories = useQuery({
@@ -77,7 +123,29 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
     setDirty(true);
     setNotice("");
   }
-  async function save() {
+  const missing = [
+    ...(!draft.title.trim() || draft.title.trim().length < 2
+      ? ["Título de la formación"]
+      : []),
+    ...(!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft.slug) ? ["Slug válido"] : []),
+    ...(!draft.categoryId ? ["Categoría"] : []),
+    ...(!draft.summary.trim() ? ["Resumen de venta"] : []),
+    ...(!(draft.price > 0) ? ["Precio mayor que cero"] : []),
+    ...(!draft.courses.length ? ["Al menos un curso"] : []),
+    ...(draft.type === "IndividualCourse" && draft.courses.length !== 1
+      ? ["Un único curso para venta individual"]
+      : []),
+  ];
+  async function save(redirect = true) {
+    if (missing.length) {
+      setError(
+        "Completa estos datos para guardar: " +
+          missing.join(", ") +
+          ". Tu trabajo se conserva en este navegador.",
+      );
+      return;
+    }
+    let navigating = false;
     setBusy(true);
     setError("");
     try {
@@ -91,14 +159,64 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
       setDraft(p.draft);
       setDirty(false);
       client.setQueryData(["product-edit", p.id], p);
-      setNotice("Borrador guardado.");
+      if (redirect) setNotice("Borrador guardado.");
       await client.invalidateQueries({ queryKey: ["admin-products"] });
-      if (!saved)
-        navigate("/admin/formaciones/" + p.id + "/editar", { replace: true });
+      if (!saved && redirect) {
+        editor.clear();
+        navigating = true;
+        navigate("/admin/formaciones/" + p.id + "/editar", {
+          replace: true,
+          state: { step, editorNotice: "Borrador guardado." },
+        });
+      }
+      return p;
     } catch (e) {
       setError(errorMessage(e));
     } finally {
-      setBusy(false);
+      if (redirect && !navigating) setBusy(false);
+    }
+  }
+  async function publish() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    let target = saved;
+    let issue = "";
+    let message = "";
+    try {
+      target = !saved || dirty ? await save(false) : saved;
+      if (!target) return;
+      const response = await mutate(
+        "/admin/products/" + target.id + "/publish",
+      );
+      target = response.data as Product;
+      setSaved(target);
+      setDraft(target.draft);
+      setDirty(false);
+      message = "Formación publicada.";
+      setNotice(message);
+      client.setQueryData(["product-edit", target.id], target);
+      await client.invalidateQueries({ queryKey: ["admin-products"] });
+      await client.invalidateQueries({ queryKey: ["catalog"] });
+    } catch (e) {
+      issue = errorMessage(e);
+      setError(issue);
+      setNotice("");
+    } finally {
+      if (!saved && target) {
+        client.setQueryData(["product-edit", target.id], target);
+        editor.clear();
+        navigate("/admin/formaciones/" + target.id + "/editar", {
+          replace: true,
+          state: {
+            step: 5,
+            editorError: issue,
+            editorNotice: issue ? "" : message,
+          },
+        });
+      } else {
+        setBusy(false);
+      }
     }
   }
   return (
@@ -109,16 +227,49 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
           <span className="eyebrow">DEL CONOCIMIENTO A LA EXPERIENCIA</span>
           <h1>{saved ? "Editar formación" : "Nueva formación"}</h1>
         </div>
-        <Button variant="contained" disabled={busy} onClick={save}>
+        <Button variant="contained" disabled={busy} onClick={() => save()}>
           Guardar borrador
         </Button>
       </div>
       {error && <Alert severity="error">{error}</Alert>}
       {notice && <Alert severity="success">{notice}</Alert>}
+      {!notice && saved?.status === "Published" && !dirty && (
+        <Alert severity="success">
+          Formación publicada. Ya está disponible en el catálogo.
+        </Alert>
+      )}
+      {!editor.persistent && (
+        <Alert severity="warning">
+          Este navegador no permite conservar el borrador al recargar. Guarda
+          antes de cerrar la página.
+        </Alert>
+      )}
+      {dirty && (
+        <Button
+          onClick={() => {
+            if (
+              window.confirm(
+                "¿Descartar los cambios locales y cargar la última versión guardada?",
+              )
+            ) {
+              editor.clear();
+              window.location.reload();
+            }
+          }}
+        >
+          Descartar cambios locales
+        </Button>
+      )}
+      <p className="draft-note">
+        Tus cambios y el paso actual se conservan al navegar o recargar. Guarda
+        el borrador para conservarlo en tu cuenta.
+      </p>
       <Stepper
+        className="formation-stepper"
+        alternativeLabel
         activeStep={step}
         nonLinear
-        sx={{ my: 4, overflowX: "auto", pb: 2 }}
+        sx={{ my: 4 }}
       >
         {[
           "Información",
@@ -134,6 +285,14 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
         ))}
       </Stepper>
       <div className="editor-panel">
+        {step === 0 && (
+          <Alert severity="info">
+            Un curso individual ofrece un solo curso. Un taller reúne cursos
+            existentes en un orden de aprendizaje; sus cursos no se venden por
+            separado. Una certificación reúne cursos y emite un documento final
+            según sus requisitos.
+          </Alert>
+        )}
         {step === 0 && (
           <>
             <TextField
@@ -233,6 +392,10 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
               </label>
             ))}
             <h3>Orden del recorrido</h3>
+            <p className="auth-description">
+              «Subir curso» y «Bajar curso» cambian su posición. Se habilitan
+              cuando hay otro curso hacia el que moverlo.
+            </p>
             {draft.courses.map((c, i) => (
               <div
                 className="editor-row ordered-course"
@@ -303,13 +466,33 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
           <>
             <TextField
               label="Precio MXN"
-              type="number"
-              value={draft.price}
-              onChange={(e) => edit({ price: Number(e.target.value) })}
+              type="text"
+              value={priceInput}
+              slotProps={{
+                htmlInput: { inputMode: "decimal" },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">$</InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">MXN</InputAdornment>
+                  ),
+                },
+              }}
+              onChange={(e) => {
+                const value = e.target.value.replace(",", ".");
+                if (/^\d{0,9}(\.\d{0,2})?$/.test(value))
+                  editor.setState((old) => ({
+                    ...old,
+                    priceInput: value,
+                    draft: { ...old.draft, price: Number(value) || 0 },
+                    dirty: true,
+                  }));
+              }}
             />
             <p className="auth-description">
-              Moneda: MXN. Máximo dos decimales. El cobro se implementa en la
-              siguiente fase.
+              Escribe el importe en pesos, con hasta dos decimales. Por ejemplo:
+              $2000 MXN.
             </p>
           </>
         )}
@@ -332,6 +515,13 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
             </TextField>
             <div className="formation-preview">
               <span className="eyebrow">VISTA PREVIA DEL BORRADOR</span>
+              {draft.coverMediaId && (
+                <img
+                  className="draft-cover"
+                  src={"/api/v1/admin/media/" + draft.coverMediaId + "/content"}
+                  alt="Portada de la formación en el borrador"
+                />
+              )}
               <h2>{draft.title || "Título de tu formación"}</h2>
               <p>{draft.summary || "Tu resumen de venta aparecerá aquí."}</p>
               <b>{money(draft.price)} MXN</b>
@@ -342,37 +532,35 @@ function ProductEditor({ initial, initialType }: { initial?: Product; initialTyp
           <>
             <h2>Listo para compartir.</h2>
             <p>
-              Se congelará una nueva versión de cursos, contenido y
-              cuestionarios. Las versiones anteriores permanecen intactas.
+              Al publicar, esta formación aparecerá en el catálogo.
+              Conservaremos una copia de su contenido y requisitos para que los
+              cambios futuros no alteren lo adquirido por alumnos anteriores.
             </p>
-            {dirty && (
+            {missing.length > 0 ? (
               <Alert severity="info">
-                Guarda los cambios antes de publicar.
+                Para publicar falta: {missing.join(", ")}.
               </Alert>
+            ) : (
+              <Alert severity="success" role="status">
+                Los datos básicos están completos. Al publicar se guardarán tus
+                cambios y se validarán los cursos, videos y cuestionarios.
+              </Alert>
+            )}
+            {!saved && (
+              <p className="auth-description">
+                No necesitas guardar por separado: «Publicar formación» guardará
+                el borrador antes de publicarlo.
+              </p>
+            )}
+            {dirty && saved && (
+              <p className="auth-description">
+                Los cambios pendientes se guardarán al publicar.
+              </p>
             )}
             <Button
               variant="contained"
-              disabled={!saved || dirty || busy}
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  const response = await mutate(
-                    "/admin/products/" + saved!.id + "/publish",
-                  );
-                  setSaved(response.data);
-                  setDraft(response.data.draft);
-                  setNotice("Formación publicada.");
-                  await client.invalidateQueries({
-                    queryKey: ["admin-products"],
-                  });
-                  await client.invalidateQueries({ queryKey: ["catalog"] });
-                } catch (e) {
-                  setError(errorMessage(e));
-                } finally {
-                  setBusy(false);
-                }
-              }}
+              disabled={missing.length > 0 || busy}
+              onClick={publish}
             >
               Publicar formación
             </Button>

@@ -1,4 +1,4 @@
-# Base de datos — Fase 1
+# Base de datos — Fases 1 y 2
 
 Migración InitialIdentity en Infrastructure/Persistence/Migrations: siete tablas de
 Identity (usuarios, roles, claims, logins, tokens y asociaciones), más historial EF.
@@ -30,3 +30,18 @@ El árbol editable de contenido y cuestionario es JSON validado; las versiones s
 snapshots independientes y la composición de versiones es relacional. Consulte
 ADR 0004 para la decisión y sus límites. No se agregan tablas de compras o progreso.
 No se reconstruyen ni eliminan las tablas de Identity existentes.
+
+## Revisión de Fase 2: perfil y carpetas
+
+ProfileAndMediaFolders agrega Bio (500 caracteres) y AvatarMediaId a AspNetUsers;
+la foto referencia MediaFiles con borrado restringido. MediaFiles distingue Kind
+Library/Avatar y OwnerUserId. Las consultas de biblioteca y referencias de cursos
+solo admiten Library; la foto se lee exclusivamente desde la cuenta propietaria.
+
+MediaFolders permite carpetas vacías, nombre único de hasta 100 caracteres y fecha
+UTC. La migración importa los nombres de carpetas existentes, elimina espacios
+exteriores y conserva los archivos anteriores con Kind=Library. Las carpetas siguen
+siendo lógicas y de un solo nivel; MediaFiles.Folder conserva el nombre canónico.
+
+Aplicar con el mismo comando migrate. La prueba de actualización desde la migración
+anterior valida conservación de archivos y deduplicación de carpetas en SQL real.

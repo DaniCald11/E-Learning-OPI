@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { Link as RouterLink, useLocation } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -20,20 +20,49 @@ import {
   statusNames,
   typeNames,
 } from "../features/catalog/types";
-import type {
-  Category,
-  Course,
-  Media,
-  Product,
-} from "../features/catalog/types";
+import type { Category, Course, Product } from "../features/catalog/types";
 export function AdminNav() {
+  const { pathname, search } = useLocation();
+  const section = pathname.startsWith("/admin/biblioteca")
+    ? "Biblioteca"
+    : pathname.startsWith("/admin/cursos")
+      ? "Cursos"
+      : "Formaciones y talleres";
   return (
-    <nav className="admin-tabs" aria-label="Administración de contenido">
-      <RouterLink to="/admin/formaciones">Formaciones y talleres</RouterLink>
-      <RouterLink to="/admin/cursos">Contenido de cursos</RouterLink>
-      <RouterLink to="/admin/biblioteca">Biblioteca</RouterLink>
-      <RouterLink to="/admin">Mi cuenta</RouterLink>
-    </nav>
+    <>
+      <div className="admin-breadcrumb">
+        <RouterLink to="/admin">← Volver al panel administrativo</RouterLink>
+        <span aria-hidden="true">/</span>
+        <span>{section}</span>
+      </div>
+      <nav className="admin-tabs" aria-label="Administración de contenido">
+        <RouterLink
+          to="/admin/biblioteca"
+          state={
+            /\/(nuevo|nueva|editar)$/.test(pathname)
+              ? { returnTo: pathname + search }
+              : undefined
+          }
+          aria-current={section === "Biblioteca" ? "page" : undefined}
+        >
+          Biblioteca
+        </RouterLink>
+        <RouterLink
+          to="/admin/cursos"
+          aria-current={section === "Cursos" ? "page" : undefined}
+        >
+          Cursos
+        </RouterLink>
+        <RouterLink
+          to="/admin/formaciones"
+          aria-current={
+            section === "Formaciones y talleres" ? "page" : undefined
+          }
+        >
+          Formaciones y talleres
+        </RouterLink>
+      </nav>
+    </>
   );
 }
 export function AdminProductsPage() {
@@ -72,9 +101,19 @@ export function AdminProductsPage() {
         >
           Nueva formación
         </Button>
-        <Button component={RouterLink} to="/admin/formaciones/nueva?tipo=Workshop" variant="outlined">Nuevo taller</Button>
+        <Button
+          component={RouterLink}
+          to="/admin/formaciones/nueva?tipo=Workshop"
+          variant="outlined"
+        >
+          Nuevo taller
+        </Button>
       </div>
-      <Alert severity="info" sx={{mb:3}}>Aquí creas lo que aparecerá en el catálogo. Un curso individual incluye un curso; un taller agrupa y ordena cursos existentes. Usa «Nuevo taller» para empezar directamente con ese tipo.</Alert>
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Aquí creas lo que aparecerá en el catálogo. Un curso individual incluye
+        un curso; un taller agrupa y ordena cursos existentes. Usa «Nuevo
+        taller» para empezar directamente con ese tipo.
+      </Alert>
       {error && <Alert severity="error">{error}</Alert>}
       <TextField
         label="Buscar formación"
@@ -178,7 +217,11 @@ export function AdminCoursesPage() {
           Nuevo curso
         </Button>
       </div>
-      <Alert severity="info" sx={{mb:3}}>Aquí preparas el contenido: temas, módulos, lecciones y cuestionario. Para agrupar cursos en un taller, entra en «Formaciones y talleres» y elige «Nuevo taller».</Alert>
+      <Alert severity="info" sx={{ mb: 3 }}>
+        Aquí preparas el contenido: temas, módulos, lecciones y cuestionario.
+        Para agrupar cursos en un taller, entra en «Formaciones y talleres» y
+        elige «Nuevo taller».
+      </Alert>
       {query.isPending ? (
         <CircularProgress />
       ) : query.isError ? (
@@ -215,130 +258,7 @@ export function AdminCoursesPage() {
     </section>
   );
 }
-export function MediaLibraryPage() {
-  const query = useQuery({
-    queryKey: ["admin-media"],
-    queryFn: async () => (await api.get<Media[]>("/admin/media")).data,
-  });
-  const client = useQueryClient();
-  const [error, setError] = useState("");
-  const [folder, setFolder] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState("");
-  return (
-    <section className="admin-page">
-      <AdminNav />
-      <div className="admin-heading">
-        <div>
-          <span className="eyebrow">TODO TU CONTENIDO, EN UN LUGAR</span>
-          <h1>Biblioteca</h1>
-        </div>
-        <Button component="label" variant="contained" disabled={busy}>
-          {busy ? "Subiendo…" : "Subir archivo"}
-          <input
-            hidden
-            type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.mp4,.webm"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setBusy(true);
-              setError("");
-              const data = new FormData();
-              data.append("file", file);
-              data.append("folder", folder);
-              try {
-                await mutate("/admin/media", data);
-                await client.invalidateQueries({ queryKey: ["admin-media"] });
-              } catch (error) {
-                setError(errorMessage(error));
-              } finally {
-                setBusy(false);
-                e.target.value = "";
-              }
-            }}
-          />
-        </Button>
-      </div>
-      <p className="auth-description">
-        Archivos privados. PDF, imágenes, MP4 y WebM, hasta 100 MB por archivo.
-      </p>
-      <div className="catalog-filters">
-        <TextField
-          label="Carpeta para nuevas cargas"
-          value={folder}
-          onChange={(e) => setFolder(e.target.value)}
-        />
-        <TextField
-          label="Buscar archivo o carpeta"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-      </div>
-      {error && <Alert severity="error">{error}</Alert>}
-      {query.isError && (
-        <Alert severity="error">No se pudo cargar la biblioteca.</Alert>
-      )}
-      {query.isPending ? (
-        <CircularProgress />
-      ) : (
-        <div className="media-grid">
-          {query.data
-            ?.filter((m) =>
-              (m.originalFileName + " " + m.folder)
-                .toLowerCase()
-                .includes(filter.toLowerCase()),
-            )
-            .map((m) => (
-              <article className="media-card" key={m.id}>
-                {m.contentType.startsWith("image/") ? (
-                  <img
-                    src={"/api/v1/admin/media/" + m.id + "/content"}
-                    alt=""
-                  />
-                ) : (
-                  <Icon
-                    name={
-                      m.contentType === "application/pdf" ? "book" : "spark"
-                    }
-                    size={38}
-                  />
-                )}
-                <h3>{m.originalFileName}</h3>
-                {m.processingStatus !== "Ready" && (
-                  <Button
-                    onClick={async () => {
-                      try {
-                        await mutate("/admin/media/" + m.id + "/refresh");
-                        await client.invalidateQueries({
-                          queryKey: ["admin-media"],
-                        });
-                      } catch (e) {
-                        setError(errorMessage(e));
-                      }
-                    }}
-                  >
-                    Actualizar procesamiento
-                  </Button>
-                )}
-                <p>
-                  {m.folder || "Sin carpeta"} ·{" "}
-                  {(m.sizeBytes / 1024 / 1024).toFixed(2)} MB
-                </p>
-                <a
-                  href={"/api/v1/admin/media/" + m.id + "/content"}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Previsualizar archivo ↗
-                </a>
-              </article>
-            ))}
-        </div>
-      )}
-    </section>
-  );
-}
+export { MediaLibraryPage } from "./MediaLibraryPage";
 export function CategoryCreator({
   onCreated,
 }: {

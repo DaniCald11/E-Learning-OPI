@@ -68,8 +68,32 @@ Sistema editorial: verde profundo, fondo cálido, acentos lima, títulos grandes
 composición asimétrica, ilustración geométrica CSS, tarjetas y microinteracciones.
 La identidad OPI es provisional y utiliza el nombre del repositorio.
 
+La revisión conserva la paleta y orienta textos e ilustración SVG arquitectónica al
+sector inmobiliario. Sustituye estrellas, órbitas y movimientos continuos por
+entradas suaves y transiciones discretas. El panel administrativo queda separado
+del perfil y presenta Biblioteca → Cursos → Formaciones y talleres.
+
 Componentes: Icon, BrandVisual, AuthLayout, AuthForm y layouts públicos/admin.
 Teclado, foco visible, enlace de salto, formularios etiquetados, movimiento reducido
 y adaptación móvil. Reordenar dispone de controles y arrastre nativo. Se difieren
 por rutas las pantallas de administración y formularios. No se inventan métricas,
 precios reales ni testimonios. El editor de formación no tiene paso Drip.
+
+## Continuidad del editor y perfil
+
+useEditorDraft conserva el agregado pendiente y su pestaña/paso mediante memoria y
+sessionStorage por usuario y editor. Persiste de forma síncrona al editar para no
+perder el último cambio al navegar. El cierre de sesión limpia borradores y caché.
+Un borrador limpio vuelve a tomar los datos del servidor; uno modificado conserva
+su RowVersion para que una revisión concurrente siga provocando 409 al guardar.
+La recuperación es de la misma pestaña; Guardar persiste en SQL y no hay sincronización
+automática de cambios sin guardar entre dispositivos.
+
+Publicar puede guardar primero el agregado. Si falla la validación posterior, el
+editor permanece en el borrador guardado y comunica el error; un curso/formación
+nuevo navega a su ID real incluso cuando se rechaza publicar, evitando perderlo.
+
+MediaFolders permite crear carpetas vacías y mover archivos por nombre canónico.
+El perfil añade Bio y una referencia a MediaFile de tipo Avatar con propietario.
+Las consultas y validación de medios de cursos/portadas solo aceptan Library,
+para que una foto personal no pueda convertirse accidentalmente en contenido público.

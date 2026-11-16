@@ -8,7 +8,9 @@ const paths = {
   eye: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
   user: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-2a8 8 0 0 1 16 0v2",
   book: "M3 4h7l2 2 2-2h7v15h-7l-2 2-2-2H3zM12 6v15",
-  spark: "m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3z",
+  search: "m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z",
+  folder: "M3 6h7l2 2h9v12H3z",
+  building: "M4 21V7l8-4 8 4v14M2 21h20M8 9v2m8-2v2M8 14v2m8-2v2m-6 5v-5h4v5",
   lock: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4",
 };
 export function Icon({

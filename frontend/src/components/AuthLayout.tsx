@@ -5,23 +5,25 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <section className="auth-layout">
       <aside className="auth-story">
-        <span className="eyebrow light">EL CONOCIMIENTO TE MUEVE</span>
+        <span className="eyebrow light">
+          FORMACIÓN Y DESARROLLO PROFESIONAL
+        </span>
         <h2>
-          Tu próxima
+          Fortalece tu
           <br />
-          versión empieza
+          práctica
           <br />
-          <em>aquí.</em>
+          <em>profesional.</em>
         </h2>
         <p>
-          Nuevas ideas. Más posibilidades.
+          Aprende a tu ritmo y en tus horarios.
           <br />
-          Un espacio para seguir creciendo.
+          Cursos y talleres para seguir preparándote.
         </p>
         <BrandVisual compact />
         <div className="story-footer">
-          <Icon name="spark" />
-          <span>Pequeños pasos. Nuevas posibilidades.</span>
+          <Icon name="book" />
+          <span>Conocimiento para tu siguiente etapa.</span>
         </div>
       </aside>
       <div className="auth-content">

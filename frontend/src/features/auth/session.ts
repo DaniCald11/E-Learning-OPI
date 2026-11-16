@@ -6,6 +6,8 @@ export interface Profile {
   email: string;
   fullName: string;
   roles: string[];
+  bio?: string | null;
+  avatarUrl?: string | null;
 }
 export const sessionKey = ["session"];
 export async function fetchProfile(): Promise<Profile | null> {

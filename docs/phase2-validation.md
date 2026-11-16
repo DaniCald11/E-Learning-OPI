@@ -1,77 +1,96 @@
-# Fase 2 y rediseño — entrega para revisión
+# Fase 2 — entrega y revisión de administración
 
-Implementado y validado en desarrollo; la Fase 3 no está iniciada.
+Implementada y validada en desarrollo. Fase 3 no iniciada.
+La [checklist funcional](phase2-checklist.md) detalla qué puede revisar el usuario.
 
-## Resultado
+## Resultado de la revisión
 
-- Nuevo diseño editorial de inicio, identidad, perfil y paneles de cuenta: Material
-  UI personalizado, ilustración CSS, componentes propios, microinteracciones,
-  estados de validación y contraseña visible/oculta. Escritorio y móvil revisados
-  mediante capturas; sin desbordamiento horizontal en inicio a 390 px.
-- Catálogo público con búsqueda, filtros, orden, paginación SQL y ficha/temario.
-- Administración de categorías, cursos reutilizables, jerarquía, materiales,
-  cuestionarios de opción múltiple y formaciones. Asistente de seis pasos sin Drip.
-- Reordenación por controles y arrastre. Edición del agregado con RowVersion.
-- Biblioteca privada, carpetas lógicas, firmas MIME y límite de archivo de 100 MB.
-- Versiones de contenido/cuestionario y composición comercial congeladas. Una
-  edición o nueva publicación no modifica versiones anteriores.
-- Validación en ambos sentidos: cursos de taller excluidos de venta individual.
-  Todos los cursos de taller obligatorios; requieren video y cuestionario publicables.
-- LocalMediaStorage solo Development. Adaptadores R2 y Stream con reproducción
-  firmada implementados; su validación real requiere cuentas/configuración.
+- Paleta conservada y presentación orientada a profesionalización inmobiliaria.
+  Ilustración arquitectónica, entradas y transiciones discretas, sin estrellas ni
+  movimiento decorativo continuo; soporte de movimiento reducido.
+- Inicio → Catálogo → Panel administrativo → Mi cuenta. Panel solo para Admin;
+  cierre de sesión dentro del menú de cuenta y perfil personal independiente.
+- Perfil alineado: nombre, descripción opcional y foto privada JPG/PNG de hasta 2 MB.
+- Panel con recorrido Biblioteca → Cursos → Formaciones y talleres y enlaces de regreso.
+- Biblioteca con carpetas vacías, selección de destino, movimiento de archivos,
+  búsqueda con lupa, selección múltiple de archivos y previsualización privada.
+- Editor de curso con Anterior/Siguiente, controles Subir/Bajar y selección visible
+  de varios videos, PDF y recursos por lección.
+- Borradores locales por usuario/pestaña: sobreviven a navegación y recarga;
+  conservan el paso del asistente. Limpieza al cerrar sesión y descarte explícito.
+- Precio textual con $ y MXN, sin controles numéricos. Portada visible en el borrador.
+- Publicar guarda primero los cambios. Si se rechaza la publicación, se muestra el
+  motivo y se conserva el borrador, también para cursos y formaciones nuevos.
+- Catálogo público con búsqueda, filtros, orden y paginación SQL; ficha y temario.
+- Cursos únicos reutilizables y cuestionarios de opción múltiple. Talleres con todos
+  sus cursos obligatorios y excluidos de venta individual, validado en ambos sentidos.
+- Publicaciones inmutables de contenido, cuestionario, composición y precio;
+  editar o publicar de nuevo no modifica las versiones anteriores.
 
 ## Evidencia ejecutada
 
-- Compilación .NET: correcta, sin errores ni advertencias del compilador.
-- Restore NuGet --locked-mode: correcto; lockfiles actualizados para AWS SDK S3.
-- Migración CatalogAndImmutableVersions aplicada a SQL Server conservando Identity.
-- EF migrations has-pending-model-changes: sin cambios pendientes.
-- **24 tests xUnit aprobados, 0 fallidos y 0 omitidos** sobre SQL Server real.
-  Conserva las 16 pruebas de identidad y añade publicación, cursos compartidos,
-  privacidad de temarios/archivos, exclusión de venta individual, cuestionarios,
-  versiones anteriores, filtros/paginación, concurrencia, precio de snapshot y
-  duplicación de producto sin duplicar el curso. También valida todos obligatorios
-  y rechazo de cuestionarios con más de una respuesta correcta.
-- **5 tests Vitest/Testing Library aprobados**: rutas protegidas y formularios.
-- **3 E2E Playwright/Chromium aprobados**: identidad completa, acceso administrativo,
-  y carga de video real WebM → curso+cuestionario → taller → publicación → catálogo
-  como visitante. El video se genera en canvas/MediaRecorder, sin proveedor externo.
-- TypeScript/Vite build y ESLint con cero warnings de lint: correctos.
-- La carga inicial se dividió por rutas; los editores ya no se cargan de entrada.
-- git diff --check: correcto. specs.md sin cambios; acuerdos nuevos en ADR 0004.
+- Restore NuGet con --locked-mode, build .NET y comprobación EF sin diferencias de modelo.
+- Migración ProfileAndMediaFolders aplicada a SQL Server sin reconstruir las tablas.
+  Conservó los cuatro archivos que existían antes de la actualización y un único Admin.
+- **28 pruebas xUnit aprobadas, 0 fallidas y 0 omitidas**, con SQL Server real.
+  Cubren identidad, CSRF, roles, administrador único, publicación, reutilización,
+  privacidad, taller/venta individual, validación de cuestionarios, snapshots,
+  paginación, concurrencia y duplicación. La revisión añade perfil/foto privada,
+  límites, carpetas/movimiento/permisos y actualización desde la migración anterior.
+  Esta última prueba crea datos de biblioteca anteriores, migra y verifica que
+  siguen como Library y que sus carpetas se importan sin duplicados.
+- **9 pruebas Vitest/Testing Library aprobadas**, incluidas recuperación de borrador,
+  preferencia de servidor para borradores limpios, limpieza al salir y fallo de storage.
+- **7 pruebas Playwright/Chromium aprobadas**: seis recorridos con API y SQL reales
+  y una prueba de guía de interfaz con respuestas simuladas. Incluyen identidad,
+  foto, publicación de taller, varios videos/PDF, carpeta vacía, retorno desde
+  Biblioteca, recarga, precio, portada cargada, publicación incompleta y logout.
+  Los videos WebM se generan con canvas/MediaRecorder; los archivos PDF/PNG son reales.
+- Build TypeScript/Vite y ESLint --max-warnings 0 correctos.
+- Capturas de escritorio revisadas para inicio, acceso, perfil y panel. A 390 px,
+  inicio, panel, perfil, curso nuevo, formación nueva y biblioteca sin desbordamiento.
+- Formato de código y git diff --check verificados; specs.md sin cambios.
 
-## Límites explícitos
+## Archivos principales de la revisión
 
-R2/Stream no tienen credenciales en esta instancia: no se verificaron cargas,
-procesamiento ni reproducción real contra esas cuentas. SES tampoco envía correo
-externo aquí. La bandeja .data/mail sigue siendo el mecanismo local de confirmación.
-No se contrataron servicios ni se publicaron entornos. La guía de desarrollo detalla
-requisitos y pruebas pendientes de las integraciones.
+| Archivo | Para qué sirve |
+|---|---|
+| frontend/src/pages/AdminDashboardPage.tsx | Entrada y recorrido de administración |
+| frontend/src/pages/MediaLibraryPage.tsx | Carpetas, cargas, búsqueda y retorno al editor |
+| frontend/src/features/catalog/useEditorDraft.ts | Recuperación local de los editores y limpieza al salir |
+| frontend/src/pages/CourseEditorPage.tsx | Pestañas, jerarquía, materiales y publicación del curso |
+| frontend/src/pages/ProductEditorPage.tsx | Asistente, moneda, portada y publicación de formación |
+| frontend/src/pages/ProfilePage.tsx | Nombre, descripción y foto personal |
+| frontend/src/app/App.tsx | Cabecera, menú de cuenta y rutas protegidas |
+| frontend/src/components/BrandVisual.tsx | Ilustración arquitectónica del nuevo inicio |
+| backend/src/EduLearning.API/Controllers/MediaFoldersController.cs | Crear/listar carpetas y validar destinos |
+| backend/src/EduLearning.API/Controllers/ProfileAvatarController.cs | Guardar, leer y quitar foto de la cuenta |
+| backend/src/EduLearning.Infrastructure/Persistence/Migrations/20261116204019_ProfileAndMediaFolders.cs | Actualizar esquema e importar carpetas de archivos existentes |
+| frontend/e2e/review.spec.ts | Recorridos reales de las correcciones solicitadas |
+| docs/phase2-checklist.md | Guía funcional para revisar esta entrega |
 
-La jerarquía editable es JSON validado; composición y referencias de versiones son
-relacionales. ADR 0004 documenta el tradeoff y la futura proyección para analítica.
-La inmutabilidad se prueba a través de los casos de uso: no hay endpoints de edición
-o borrado de versiones. La administración actual es la base del editor MVP, no un
-constructor HTML arbitrario.
+## Límites de esta entrega
 
-No hay checkout, pagos, matrículas, grants, calificación de intentos, progreso ni
-emisión de documentos todavía. Las fichas indican que la compra aún no está
-habilitada. No existe contenido liberado por calendario ni multitenencia.
+R2/Stream no tienen credenciales configuradas: sus adaptadores existen, pero no se
+verificaron cargas ni reproducción contra cuentas reales. SES tampoco envía correo
+externo aquí; se usa la bandeja privada .data/mail. No se contrataron servicios.
+La guía de desarrollo explica la configuración y validación pendiente.
 
-Las pruebas E2E conservan contenido ficticio rotulado "de prueba" en la base local.
-No son datos comerciales. No se ejecutó GitHub Actions desde este chat: se validaron
-sus comandos localmente. Vite conserva una advertencia no bloqueante por el chunk
-base de aproximadamente 502 kB (163 kB gzip); las páginas se cargan de forma diferida.
+Los cambios pendientes del editor se guardan en sessionStorage por usuario y pestaña;
+Guardar los persiste en SQL. No se sincronizan cambios sin guardar entre dispositivos.
+Una formación necesita datos básicos válidos para guardar en servidor. El contenido
+que todavía no los cumple se conserva localmente hasta completarlos.
 
-## Aclaración del editor tras revisión del administrador
+La jerarquía editable sigue siendo JSON validado; la composición y referencias a
+versiones son relacionales. ADR 0004 recoge el tradeoff. No hay edición/borrado de
+snapshots en los endpoints. El editor no es un constructor HTML arbitrario.
 
-Los botones de reordenación indican «Mover arriba/abajo» para diferenciarlos de
-la carga de archivos. El editor explica que los temas se guardan con Guardar curso,
-que una lección Documento necesita PDF para publicarse y permite abrir Biblioteca
-en otra pestaña sin abandonar el borrador. Advierte ante imágenes sin PDF.
+No hay checkout, pagos, matrículas, grants, intentos de alumno, calificación,
+progreso ni documentos emitidos. El catálogo informa que la compra no está habilitada.
+No hay Drip Content, Multi-Tenant ni instructores.
 
-Navegación diferenciada: Contenido de cursos / Formaciones y talleres. Nuevo taller
-abre el asistente con Workshop seleccionado, sin cambiar la edición de productos
-existentes. Build y lint correctos; una prueba Playwright adicional con respuestas
-API simuladas verifica etiquetas, aviso PDF y selección inicial de taller. Esta
-prueba de interfaz no sustituye los tres recorridos anteriores con API/SQL reales.
+Las pruebas de navegador conservan contenido ficticio rotulado «de prueba» en la
+base local. Las capturas de perfil/panel utilizan una sesión ilustrativa simulada,
+identificada como Perfil de ejemplo; no son evidencia de integración. Los conteos
+anteriores corresponden a pruebas ejecutadas localmente. Las páginas se cargan por
+rutas; el build actual no emite advertencias de tamaño de chunk.

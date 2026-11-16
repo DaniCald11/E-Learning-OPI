@@ -139,7 +139,7 @@ export function CatalogPage() {
                     />
                   ) : (
                     <>
-                      <Icon name="spark" size={75} />
+                      <Icon name="building" size={75} />
                       <span>{p.category}</span>
                     </>
                   )}
@@ -240,7 +240,7 @@ export function ProductDetailPage() {
             {p.coverMediaId ? (
               <img src={"/api/v1/media/" + p.coverMediaId + "/cover"} alt="" />
             ) : (
-              <Icon name="spark" size={90} />
+              <Icon name="building" size={90} />
             )}
           </div>
           <span className="eyebrow">{typeNames[p.type]}</span>

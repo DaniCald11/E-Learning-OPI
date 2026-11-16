@@ -10,17 +10,17 @@ export function HomePage() {
       <section className="home-hero">
         <div className="hero-copy">
           <span className="eyebrow">
-            <span className="live-dot" /> TU SIGUIENTE PASO EMPIEZA AQUÍ
+            <span className="live-dot" /> FORMACIÓN PARA EL SECTOR INMOBILIARIO
           </span>
           <h1>
-            Aprende algo.
+            Impulsa tu
             <br />
-            Cambia <span>todo.</span>
-            <span className="headline-star">✳</span>
+            carrera <span>inmobiliaria.</span>
           </h1>
           <p>
-            El conocimiento abre caminos. Haz espacio para nuevas ideas,
-            fortalece tus habilidades y construye lo que sigue.
+            Fortalece tus habilidades con cursos y talleres de
+            profesionalización para el sector inmobiliario. Aprende a tu ritmo,
+            en los horarios que mejor se adapten a ti.
           </p>
           <div className="hero-actions">
             <Button
@@ -48,43 +48,46 @@ export function HomePage() {
         </div>
         <div className="hero-art">
           <span className="art-label">
-            UNA MENTE ABIERTA.
+            ACTUALIZACIÓN PROFESIONAL.
             <br />
-            UN MUNDO DE POSIBILIDADES.
+            APRENDIZAJE CON PROPÓSITO.
           </span>
           <BrandVisual />
           <span className="art-bottom">
-            E–LEARNING OPI <span>EST. EN TU CURIOSIDAD ↗</span>
+            E–LEARNING OPI <span>APRENDE · APLICA · AVANZA</span>
           </span>
         </div>
       </section>
       <section className="learning-strip">
-        <span>Una idea puede ser el comienzo.</span>
+        <span>Conocimiento para tu práctica profesional.</span>
         <div>
-          Explora <Icon name="spark" /> Aprende <Icon name="spark" /> Evoluciona{" "}
-          <Icon name="spark" />
+          Aprende <Icon name="book" /> Especialízate <Icon name="book" /> Avanza{" "}
+          <Icon name="book" />
         </div>
       </section>
       <section className="home-bottom">
         <div>
-          <span className="eyebrow">CRECER SE CONSTRUYE</span>
+          <span className="eyebrow">FORMACIÓN QUE SE ADAPTA A TI</span>
           <h2>
-            Un espacio para
+            Actualiza tus habilidades.
             <br />
-            tu siguiente paso.
+            Organiza tu aprendizaje.
           </h2>
         </div>
         <div className="value-card">
-          <span>01 / TU CUENTA</span>
+          <span>01 / APRENDIZAJE FLEXIBLE</span>
           <Icon name="user" size={28} />
-          <h3>Tu punto de partida.</h3>
-          <p>Un perfil propio para acompañar tu camino de aprendizaje.</p>
+          <h3>A tu ritmo y en tus horarios.</h3>
+          <p>Organiza tu tiempo y avanza en tu formación profesional.</p>
         </div>
         <div className="value-card">
-          <span>02 / TU SEGURIDAD</span>
+          <span>02 / DESARROLLO PROFESIONAL</span>
           <Icon name="shield" size={28} />
-          <h3>Empieza con confianza.</h3>
-          <p>Confirma tu correo y mantén el control de tu cuenta.</p>
+          <h3>Conocimiento con enfoque.</h3>
+          <p>
+            Explora cursos y talleres orientados a fortalecer tu práctica
+            inmobiliaria.
+          </p>
         </div>
       </section>
     </>

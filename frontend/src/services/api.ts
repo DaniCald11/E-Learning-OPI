@@ -3,7 +3,7 @@ export const api = axios.create({ baseURL: "/api/v1", withCredentials: true });
 export async function mutate(
   path: string,
   body?: unknown,
-  method: "post" | "patch" | "put" = "post",
+  method: "post" | "patch" | "put" | "delete" = "post",
 ) {
   const { data } = await api.get<{ token: string }>("/auth/csrf");
   return api.request({

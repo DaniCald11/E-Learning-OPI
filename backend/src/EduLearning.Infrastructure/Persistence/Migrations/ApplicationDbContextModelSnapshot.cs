@@ -138,10 +138,17 @@ namespace EduLearning.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid?>("OwnerUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ProcessingStatus")
                         .IsRequired()
@@ -162,6 +169,28 @@ namespace EduLearning.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("MediaFiles");
+                });
+
+            modelBuilder.Entity("EduLearning.Domain.Catalog.MediaFolder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("MediaFolders");
                 });
 
             modelBuilder.Entity("EduLearning.Domain.Catalog.Product", b =>
@@ -341,6 +370,13 @@ namespace EduLearning.Infrastructure.Persistence.Migrations
                     b.Property<int?>("AdminSlot")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("AvatarMediaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Bio")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("nvarchar(max)");
@@ -401,6 +437,8 @@ namespace EduLearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("AdminSlot")
                         .IsUnique()
                         .HasFilter("[AdminSlot] IS NOT NULL");
+
+                    b.HasIndex("AvatarMediaId");
 
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
@@ -618,6 +656,14 @@ namespace EduLearning.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ProductVersionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("EduLearning.Infrastructure.Identity.ApplicationUser", b =>
+                {
+                    b.HasOne("EduLearning.Domain.Catalog.MediaFile", null)
+                        .WithMany()
+                        .HasForeignKey("AvatarMediaId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

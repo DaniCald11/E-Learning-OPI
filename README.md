@@ -34,3 +34,4 @@ Multi-Tenant, instructores ni funciones posteriores no autorizadas.
 - [Vista del nuevo diseño](docs/design-preview.md).
 - [Decisiones de catálogo y versiones](docs/decisions/0004-catalog-and-design.md).
 - [Entrega y validación de Fase 2](docs/phase2-validation.md).
+- [Checklist de lo que debe funcionar en Fase 2](docs/phase2-checklist.md).

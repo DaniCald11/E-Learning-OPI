@@ -97,6 +97,8 @@ public sealed class ProductVersionCourse
 
 public sealed class MediaFile
 {
+    public string Kind { get; set; } = "Library";
+    public Guid? OwnerUserId { get; set; }
     public Guid Id { get; set; }
     public string OriginalFileName { get; set; } = "";
     public string ContentType { get; set; } = "";
@@ -105,5 +107,12 @@ public sealed class MediaFile
     public string ProcessingStatus { get; set; } = "Ready";
     public long SizeBytes { get; set; }
     public string Folder { get; set; } = "";
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+}
+
+public sealed class MediaFolder
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = "";
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 }

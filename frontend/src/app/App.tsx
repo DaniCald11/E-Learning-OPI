@@ -4,11 +4,19 @@ import {
   Route,
   Routes,
   useNavigate,
+  Navigate,
 } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, CircularProgress } from "@mui/material";
+import {
+  Alert,
+  Avatar,
+  Button,
+  CircularProgress,
+  Menu,
+  MenuItem,
+} from "@mui/material";
 import { lazy, Suspense, useState } from "react";
-import { useSession, sessionKey, landing } from "../features/auth/session";
+import { useSession, sessionKey } from "../features/auth/session";
 import { mutate, errorMessage } from "../services/api";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { HomePage } from "../pages/HomePage";
@@ -65,71 +73,13 @@ const ProductEditorPage = lazy(() =>
 );
 import { AuthLayout } from "../components/AuthLayout";
 import { Icon } from "../components/Icon";
-function Dashboard({ admin = false }: { admin?: boolean }) {
-  const { data } = useSession();
-  return (
-    <section className="account-page">
-      <div className="account-heading">
-        <span className="eyebrow">
-          {admin ? "TU ESPACIO DE GESTIÓN" : "TU ESPACIO PERSONAL"}
-        </span>
-        <h1>{admin ? "Administración" : "Mi cuenta"}</h1>
-        <p>Hola, {data?.fullName}. Qué bueno tenerte aquí.</p>
-        {admin && (
-          <div className="button-row">
-            <Button
-              component={RouterLink}
-              to="/admin/formaciones"
-              variant="contained"
-            >
-              Gestionar formaciones
-            </Button>
-            <Button component={RouterLink} to="/admin/cursos">
-              Cursos
-            </Button>
-            <Button component={RouterLink} to="/admin/biblioteca">
-              Biblioteca
-            </Button>
-          </div>
-        )}
-      </div>
-      <div className="account-grid">
-        <article className="account-card dark-card">
-          <Icon name="spark" size={36} />
-          <h2>
-            Todo empieza
-            <br />
-            contigo.
-          </h2>
-          <p>Haz de tu cuenta un espacio propio.</p>
-          <Button
-            component={RouterLink}
-            to="/perfil"
-            variant="contained"
-            endIcon={<Icon />}
-          >
-            Editar mi perfil
-          </Button>
-        </article>
-        <article className="account-card">
-          <span className="eyebrow">PERFIL Y ACCESO</span>
-          <div className="account-avatar">
-            {data?.fullName.slice(0, 1).toUpperCase()}
-          </div>
-          <h2>{data?.fullName}</h2>
-          <p>{data?.email}</p>
-          <span className="status-chip">
-            <Icon name="check" size={15} /> Correo confirmado
-          </span>
-        </article>
-      </div>
-    </section>
-  );
-}
+import { AdminDashboardPage } from "../pages/AdminDashboardPage";
+import { clearEditorDrafts } from "../features/catalog/useEditorDraft";
 export default function App() {
   const { data } = useSession();
   const query = useQueryClient();
   const navigate = useNavigate();
+  const [accountAnchor, setAccountAnchor] = useState<HTMLElement | null>(null);
   const [error, setError] = useState("");
   return (
     <div className="site-shell">
@@ -139,51 +89,86 @@ export default function App() {
       <header className="site-header">
         <RouterLink to="/" className="brand">
           <span className="brand-symbol">
-            <Icon name="spark" size={24} />
+            <Icon name="building" size={24} />
           </span>
           <span>
             OPI<span className="brand-sub">E—LEARNING</span>
           </span>
         </RouterLink>
         <nav aria-label="Navegación principal">
-          <Button component={RouterLink} to="/catalogo">
+          <Button component={NavLink} to="/" end>
+            Inicio
+          </Button>
+          <Button component={NavLink} to="/catalogo">
             Catálogo
           </Button>
-          <NavLink to="/" end className="nav-home">
-            Inicio
-          </NavLink>
           {data ? (
             <>
-              <Button component={RouterLink} to={landing(data)}>
+              {data.roles.includes("Admin") && (
+                <Button component={NavLink} to="/admin">
+                  Panel administrativo
+                </Button>
+              )}
+              <Button
+                id="account-menu-button"
+                aria-label="Mi cuenta"
+                aria-haspopup="menu"
+                aria-controls={accountAnchor ? "account-menu" : undefined}
+                aria-expanded={Boolean(accountAnchor)}
+                onClick={(event) => setAccountAnchor(event.currentTarget)}
+                startIcon={
+                  <Avatar
+                    src={data.avatarUrl ?? undefined}
+                    alt=""
+                    sx={{ width: 26, height: 26, fontSize: 12 }}
+                  >
+                    {data.fullName.slice(0, 1)}
+                  </Avatar>
+                }
+              >
                 Mi cuenta
               </Button>
-              <Button
-                variant="outlined"
-                onClick={async () => {
-                  try {
-                    await mutate("/auth/logout");
-                    query.setQueryData(sessionKey, null);
-                    navigate("/login");
-                    setError("");
-                  } catch (failure) {
-                    setError(errorMessage(failure));
-                  }
+              <Menu
+                id="account-menu"
+                anchorEl={accountAnchor}
+                open={Boolean(accountAnchor)}
+                onClose={() => setAccountAnchor(null)}
+                slotProps={{
+                  list: { "aria-labelledby": "account-menu-button" },
                 }}
               >
-                Cerrar sesión
-              </Button>
+                <MenuItem
+                  component={RouterLink}
+                  to="/mi-cuenta"
+                  onClick={() => setAccountAnchor(null)}
+                >
+                  Mi perfil
+                </MenuItem>
+                <MenuItem
+                  onClick={async () => {
+                    try {
+                      await mutate("/auth/logout");
+                      clearEditorDrafts();
+                      query.clear();
+                      query.setQueryData(sessionKey, null);
+                      setAccountAnchor(null);
+                      navigate("/login");
+                      setError("");
+                    } catch (failure) {
+                      setError(errorMessage(failure));
+                    }
+                  }}
+                >
+                  Cerrar sesión
+                </MenuItem>
+              </Menu>
             </>
           ) : (
             <>
               <Button component={RouterLink} to="/login" className="login-nav">
                 Iniciar sesión
               </Button>
-              <Button
-                component={RouterLink}
-                to="/registro"
-                variant="contained"
-                endIcon={<Icon name="diagonal" size={17} />}
-              >
+              <Button component={RouterLink} to="/registro" variant="contained">
                 Crear cuenta
               </Button>
             </>
@@ -304,7 +289,7 @@ export default function App() {
               path="/alumno/dashboard"
               element={
                 <ProtectedRoute role="Student">
-                  <Dashboard />
+                  <Navigate to="/mi-cuenta" replace />
                 </ProtectedRoute>
               }
             />
@@ -312,7 +297,15 @@ export default function App() {
               path="/admin"
               element={
                 <ProtectedRoute role="Admin">
-                  <Dashboard admin />
+                  <AdminDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/mi-cuenta"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />

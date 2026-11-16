@@ -131,6 +131,31 @@ sube, crea curso+cuestionario, publica taller y comprueba el catálogo como visi
 No necesita ffmpeg ni servicios externos. Todos los registros llevan "de prueba";
 no son cursos ni precios comerciales reales.
 
+### Actualizar la revisión de Fase 2
+
+Los cambios se revisan en la rama `develop`. Con los servicios API/frontend detenidos
+y tu trabajo local guardado, actualiza esa rama y aplica la migración nueva:
+
+```bash
+git switch develop
+git pull --ff-only origin develop
+python3 scripts/dev.py migrate
+```
+
+En Windows puedes usar `python` en lugar de `python3`. Si es tu primera instalación,
+ejecuta antes `python scripts/dev.py setup`. No borres `.data/development.json`,
+`.env` ni el volumen SQL. Esta revisión no añade dependencias de frontend.
+
+Después arranca API y frontend en terminales separadas como arriba. La migración
+ProfileAndMediaFolders agrega descripción/foto del perfil y carpetas de biblioteca;
+importa las carpetas existentes y conserva usuarios y archivos.
+
+Flujo: Panel administrativo → Biblioteca → Cursos → Formaciones y talleres.
+Mi cuenta contiene perfil y cierre de sesión. Los editores conservan trabajo sin
+guardar y pestaña/paso en la misma pestaña del navegador, incluso al recargar.
+Guardar curso/Guardar borrador persiste en la cuenta. Cerrar sesión limpia la copia
+local. Consulta la [checklist funcional](phase2-checklist.md) para revisar la entrega.
+
 ### Cloudflare para medios reales
 
 LocalMediaStorage es exclusivo Development. Para usar proveedores reales configurar

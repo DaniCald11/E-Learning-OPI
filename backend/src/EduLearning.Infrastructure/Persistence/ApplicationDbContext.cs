@@ -16,6 +16,7 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
     public DbSet<ProductCourse> ProductCourses => Set<ProductCourse>();
     public DbSet<ProductVersion> ProductVersions => Set<ProductVersion>();
     public DbSet<ProductVersionCourse> ProductVersionCourses => Set<ProductVersionCourse>();
+    public DbSet<MediaFolder> MediaFolders => Set<MediaFolder>();
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -87,6 +88,8 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
                 .HasForeignKey(x => x.CourseVersionId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
+        builder.Entity<MediaFolder>().Property(x => x.Name).HasMaxLength(100);
+        builder.Entity<MediaFolder>().HasIndex(x => x.Name).IsUnique();
         builder.Entity<MediaFile>(e =>
         {
             e.Property(x => x.OriginalFileName).HasMaxLength(255);
@@ -96,6 +99,11 @@ public sealed class ApplicationDbContext(DbContextOptions<ApplicationDbContext> 
 
         builder.Entity<ApplicationUser>(user =>
         {
+            user.Property(x => x.Bio).HasMaxLength(500);
+            user.HasOne<MediaFile>()
+                .WithMany()
+                .HasForeignKey(x => x.AvatarMediaId)
+                .OnDelete(DeleteBehavior.Restrict);
             user.Property(x => x.FullName).HasMaxLength(200).IsRequired();
             user.HasIndex(x => x.NormalizedEmail)
                 .IsUnique()

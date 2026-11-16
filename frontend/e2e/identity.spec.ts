@@ -37,16 +37,55 @@ test("registro, confirmación, acceso, permisos, perfil y recuperación reales",
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page).toHaveURL(/alumno\/dashboard/);
+  await expect(page).toHaveURL(/mi-cuenta/);
   await page.goto("/admin");
   await expect(page.getByRole("alert")).toContainText("No tienes permiso");
   await page.goto("/perfil");
   await page.getByLabel("Nombre completo").fill("Nombre Navegador");
-  await page.getByRole("button", { name: "Guardar nombre" }).click();
-  await expect(page.getByText("Nombre actual: Nombre Navegador")).toBeVisible();
+  await page
+    .getByLabel("Sobre mí (opcional)")
+    .fill("Asesor inmobiliario en formación.");
+  await page.getByRole("button", { name: "Guardar perfil" }).click();
+  await expect(page.getByRole("alert")).toContainText("Perfil actualizado.");
+  await expect(page.getByLabel("Nombre completo")).toHaveValue(
+    "Nombre Navegador",
+  );
   await page.reload();
-  await expect(page.getByText("Nombre actual: Nombre Navegador")).toBeVisible();
-  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await expect(page.getByLabel("Nombre completo")).toHaveValue(
+    "Nombre Navegador",
+  );
+  await expect(page.getByLabel("Sobre mí (opcional)")).toHaveValue(
+    "Asesor inmobiliario en formación.",
+  );
+  const photo = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    canvas.getContext("2d")!.fillRect(0, 0, 32, 32);
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+  await page
+    .getByLabel("Seleccionar foto de perfil")
+    .setInputFiles({
+      name: "perfil.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(photo, "base64"),
+    });
+  await expect(page.getByRole("alert")).toContainText(
+    "Foto de perfil actualizada.",
+  );
+  const avatar = page.getByRole("img", {
+    name: "Foto de Nombre Navegador",
+    exact: true,
+  });
+  await expect(avatar).toBeVisible();
+  await expect
+    .poll(() =>
+      avatar.evaluate((image: HTMLImageElement) => image.naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Mi cuenta", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Cerrar sesión" }).click();
   await page.getByRole("link", { name: "¿Olvidaste tu contraseña?" }).click();
   await expect(
     page.getByRole("heading", { name: "Recupera tu contraseña" }),
@@ -63,7 +102,7 @@ test("registro, confirmación, acceso, permisos, perfil y recuperación reales",
   await page.getByLabel("Correo electrónico").fill(email);
   await page.getByLabel("Contraseña", { exact: true }).fill(updated);
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
-  await expect(page).toHaveURL(/alumno\/dashboard/);
+  await expect(page).toHaveURL(/mi-cuenta/);
 });
 test("administrador aprovisionado accede a su panel", async ({ page }) => {
   const settings = JSON.parse(
@@ -79,6 +118,6 @@ test("administrador aprovisionado accede a su panel", async ({ page }) => {
   await page.getByRole("button", { name: "Entrar", exact: true }).click();
   await expect(page).toHaveURL(/\/admin$/);
   await expect(
-    page.getByRole("heading", { name: "Administración" }),
+    page.getByRole("heading", { name: "Panel administrativo" }),
   ).toBeVisible();
 });

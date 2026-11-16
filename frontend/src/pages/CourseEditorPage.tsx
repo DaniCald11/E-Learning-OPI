@@ -1,6 +1,12 @@
 import { useState } from "react";
-import type { DragEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEditorDraft } from "../features/catalog/useEditorDraft";
+import type { SetStateAction, DragEvent } from "react";
+import {
+  Link as RouterLink,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Accordion,
@@ -9,6 +15,7 @@ import {
   Alert,
   Button,
   Chip,
+  Checkbox,
   CircularProgress,
   FormControlLabel,
   MenuItem,
@@ -61,13 +68,35 @@ export function CourseEditorPage() {
   return <CourseEditor key={id ?? "new"} initial={query.data} />;
 }
 function CourseEditor({ initial }: { initial?: Course }) {
-  const [draft, setDraft] = useState<CourseDraft>(initial?.draft ?? blank);
-  const [saved, setSaved] = useState(initial);
-  const [dirty, setDirty] = useState(false);
-  const [tab, setTab] = useState(0);
+  const location = useLocation();
+  const editor = useEditorDraft("course:" + (initial?.id ?? "new"), {
+    draft: initial?.draft ?? blank,
+    saved: initial,
+    dirty: false as boolean,
+    tab: typeof location.state?.tab === "number" ? location.state.tab : 0,
+    expanded: {} as Record<string, boolean>,
+  });
+  const { draft, saved, dirty, tab } = editor.state;
+  function setDraft(value: SetStateAction<CourseDraft>) {
+    editor.setState((old) => ({
+      ...old,
+      draft: typeof value === "function" ? value(old.draft) : value,
+    }));
+  }
+  function setSaved(value: Course) {
+    editor.setState((old) => ({ ...old, saved: value }));
+  }
+  function setDirty(value: boolean) {
+    editor.setState((old) => ({ ...old, dirty: value }));
+  }
+  function setTab(value: number) {
+    editor.setState((old) => ({ ...old, tab: value }));
+  }
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [error, setError] = useState<string>(location.state?.editorError ?? "");
+  const [notice, setNotice] = useState<string>(
+    location.state?.editorNotice ?? "",
+  );
   const navigate = useNavigate();
   const client = useQueryClient();
   const media = useQuery({
@@ -83,7 +112,8 @@ function CourseEditor({ initial }: { initial?: Course }) {
     setDirty(true);
     setNotice("");
   }
-  async function save() {
+  async function save(redirect = true) {
+    let navigating = false;
     setBusy(true);
     setError("");
     try {
@@ -96,36 +126,65 @@ function CourseEditor({ initial }: { initial?: Course }) {
       setSaved(course);
       setDraft(course.draft);
       setDirty(false);
-      setNotice("Borrador guardado.");
+      if (redirect) setNotice("Borrador guardado.");
       client.setQueryData(["course-edit", course.id], course);
       await client.invalidateQueries({ queryKey: ["admin-courses"] });
-      if (!saved)
-        navigate("/admin/cursos/" + course.id + "/editar", { replace: true });
+      if (!saved && redirect) {
+        editor.clear();
+        navigating = true;
+        navigate("/admin/cursos/" + course.id + "/editar", {
+          replace: true,
+          state: { tab, editorNotice: "Borrador guardado." },
+        });
+      }
+      return course;
     } catch (e) {
       setError(errorMessage(e));
     } finally {
-      setBusy(false);
+      if (redirect && !navigating) setBusy(false);
     }
   }
   async function publish(action = "publish") {
-    if (!saved) return;
     setBusy(true);
     setError("");
+    setNotice("");
+    let target = saved;
+    let issue = "";
+    let message = "";
     try {
-      const result = await mutate("/admin/courses/" + saved.id + "/" + action);
-      const course = result.data as Course;
-      setSaved(course);
-      setDraft(course.draft);
-      setNotice(
+      target = !saved || dirty ? await save(false) : saved;
+      if (!target) return;
+      const result = await mutate("/admin/courses/" + target.id + "/" + action);
+      target = result.data as Course;
+      setSaved(target);
+      setDraft(target.draft);
+      setDirty(false);
+      message =
         action === "publish"
           ? "Versión publicada. Las versiones anteriores se conservan."
-          : "Curso archivado.",
-      );
+          : "Curso archivado.";
+      setNotice(message);
+      client.setQueryData(["course-edit", target.id], target);
       await client.invalidateQueries({ queryKey: ["admin-courses"] });
     } catch (e) {
-      setError(errorMessage(e));
+      issue = errorMessage(e);
+      setError(issue);
+      setNotice("");
     } finally {
-      setBusy(false);
+      if (!saved && target) {
+        client.setQueryData(["course-edit", target.id], target);
+        editor.clear();
+        navigate("/admin/cursos/" + target.id + "/editar", {
+          replace: true,
+          state: {
+            tab,
+            editorError: issue,
+            editorNotice: issue ? "" : message,
+          },
+        });
+      } else {
+        setBusy(false);
+      }
     }
   }
   return (
@@ -143,14 +202,10 @@ function CourseEditor({ initial }: { initial?: Course }) {
           >
             Archivar
           </Button>
-          <Button
-            disabled={busy || !saved || dirty}
-            onClick={() => publish()}
-            variant="outlined"
-          >
+          <Button disabled={busy} onClick={() => publish()} variant="outlined">
             Publicar versión
           </Button>
-          <Button variant="contained" disabled={busy} onClick={save}>
+          <Button variant="contained" disabled={busy} onClick={() => save()}>
             {busy ? "Guardando…" : "Guardar curso"}
           </Button>
         </div>
@@ -161,9 +216,42 @@ function CourseEditor({ initial }: { initial?: Course }) {
           se guardan como borrador hasta publicar una nueva versión.
         </p>
       )}
+      {!editor.persistent && (
+        <Alert severity="warning">
+          El navegador no permite conservar el borrador al recargar. Guarda el
+          curso antes de cerrar esta página.
+        </Alert>
+      )}
+      <p className="draft-note">
+        Tu trabajo se conserva en este navegador al navegar y recargar. «Guardar
+        curso» lo guarda en tu cuenta; «Publicar versión» lo hace disponible
+        para tus formaciones.
+      </p>
+      {dirty && (
+        <Button
+          onClick={() => {
+            if (
+              window.confirm(
+                "¿Descartar los cambios locales y cargar la última versión guardada?",
+              )
+            ) {
+              editor.clear();
+              window.location.reload();
+            }
+          }}
+        >
+          Descartar cambios locales
+        </Button>
+      )}
       {dirty && <Chip size="small" label="Cambios sin guardar" />}
       {error && <Alert severity="error">{error}</Alert>}
       {notice && <Alert severity="success">{notice}</Alert>}
+      {!notice && saved?.status === "Published" && !dirty && (
+        <Alert severity="success">
+          Versión publicada. Este curso ya está disponible para crear
+          formaciones.
+        </Alert>
+      )}
       <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ my: 3 }}>
         <Tab label="Información" />
         <Tab label="Temas y contenido" />
@@ -203,13 +291,25 @@ function CourseEditor({ initial }: { initial?: Course }) {
           />
         </div>
       )}
-      {tab === 1 && <Alert severity="info" sx={{mb:2}}>Organiza el curso en temas, módulos y lecciones. Guarda todo con «Guardar curso». Los controles «Mover arriba» cambian el orden; los archivos se cargan en Biblioteca.</Alert>}
+      {tab === 1 && (
+        <Alert role="status" severity="info" sx={{ mb: 2 }}>
+          Organiza el curso en temas, módulos y lecciones. Guarda todo con
+          «Guardar curso». Los controles «Subir» y «Bajar» cambian el orden; los
+          archivos se cargan en Biblioteca.
+        </Alert>
+      )}
       {tab === 1 && (
         <div className="editor-panel">
           {draft.topics.map((topic, ti) => (
             <Accordion
               key={topic.id}
-              defaultExpanded
+              expanded={editor.state.expanded[topic.id] ?? true}
+              onChange={(_, value) =>
+                editor.setState((old) => ({
+                  ...old,
+                  expanded: { ...old.expanded, [topic.id]: value },
+                }))
+              }
               draggable
               onDragStart={(e) => drag(e, "topic", ti)}
               onDragOver={(e) => e.preventDefault()}
@@ -245,7 +345,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                         })
                       }
                     >
-                      Mover arriba
+                      Subir
                     </Button>
                     <Button
                       disabled={ti === draft.topics.length - 1}
@@ -258,7 +358,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                         })
                       }
                     >
-                      Mover abajo
+                      Bajar
                     </Button>
                     <Button
                       color="error"
@@ -303,7 +403,15 @@ function CourseEditor({ initial }: { initial?: Course }) {
                             })
                           }
                         >
-                          Mover módulo arriba
+                          Subir módulo
+                        </Button>
+                        <Button
+                          disabled={mi === topic.modules.length - 1}
+                          onClick={() =>
+                            edit((d) => move(d.topics[ti].modules, mi, mi + 1))
+                          }
+                        >
+                          Bajar módulo
                         </Button>
                         <Button
                           onClick={() =>
@@ -364,7 +472,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                                   {x === "Document"
                                     ? "Documento"
                                     : x === "Mixed"
-                                      ? "Video y recursos"
+                                      ? "Videos y recursos"
                                       : "Video"}
                                 </MenuItem>
                               ))}
@@ -372,9 +480,19 @@ function CourseEditor({ initial }: { initial?: Course }) {
                           </div>
                           <TextField
                             label="Materiales de biblioteca"
-                            helperText={lesson.type === "Document" ? "Para publicar una lección de documento, selecciona al menos un PDF. Las imágenes no sustituyen el PDF." : "Selecciona el video y los recursos que ya cargaste en la biblioteca."}
+                            helperText={
+                              lesson.type === "Document"
+                                ? "Para publicar una lección de documento, selecciona al menos un PDF. Las imágenes no sustituyen el PDF."
+                                : "Selecciona el video y los recursos que ya cargaste en la biblioteca."
+                            }
                             select
-                            slotProps={{ select: { multiple: true } }}
+                            slotProps={{
+                              select: {
+                                multiple: true,
+                                renderValue: (selected) =>
+                                  `${(selected as string[]).length} archivo(s) seleccionado(s)`,
+                              },
+                            }}
                             value={lesson.mediaIds}
                             onChange={(e) =>
                               edit((d) => {
@@ -387,12 +505,102 @@ function CourseEditor({ initial }: { initial?: Course }) {
                           >
                             {media.data?.map((m) => (
                               <MenuItem key={m.id} value={m.id}>
+                                <Checkbox
+                                  checked={lesson.mediaIds.includes(m.id)}
+                                />
                                 {m.originalFileName}
                               </MenuItem>
                             ))}
                           </TextField>
-                          {lesson.type === "Document" && lesson.mediaIds.length > 0 && media.data && !media.data.some(m => lesson.mediaIds.includes(m.id) && m.contentType === "application/pdf") && <Alert severity="warning">Falta un PDF. Puedes guardar el borrador, pero esta lección no se puede publicar solo con imágenes.</Alert>}
-                          <Button href="/admin/biblioteca" target="_blank" rel="noopener noreferrer">Subir archivos a la biblioteca ↗</Button>
+                          {lesson.type === "Document" &&
+                            lesson.mediaIds.length > 0 &&
+                            media.data &&
+                            !media.data.some(
+                              (m) =>
+                                lesson.mediaIds.includes(m.id) &&
+                                m.contentType === "application/pdf",
+                            ) && (
+                              <Alert severity="warning">
+                                Falta un PDF. Puedes guardar el borrador, pero
+                                esta lección no se puede publicar solo con
+                                imágenes.
+                              </Alert>
+                            )}
+                          <Button
+                            component={RouterLink}
+                            to="/admin/biblioteca"
+                            state={{ returnTo: location.pathname }}
+                          >
+                            Ir a Biblioteca para cargar archivos
+                          </Button>
+                          <div
+                            className="lesson-material-list"
+                            aria-label="Archivos de la lección"
+                          >
+                            <p className="auth-description">
+                              Una lección puede tener varios videos, PDF y
+                              recursos. Selecciona todos los que necesites.
+                            </p>
+                            {lesson.mediaIds.map((id, index) => {
+                              const file = media.data?.find((m) => m.id === id);
+                              return (
+                                <div className="material-row" key={id}>
+                                  <span>
+                                    <b>
+                                      {file?.originalFileName ??
+                                        "Archivo no disponible"}
+                                    </b>
+                                    <small>
+                                      {file?.contentType.startsWith("video/")
+                                        ? "Video"
+                                        : file?.contentType ===
+                                            "application/pdf"
+                                          ? "PDF"
+                                          : "Recurso"}
+                                    </small>
+                                  </span>
+                                  <Button
+                                    disabled={index === 0}
+                                    onClick={() =>
+                                      edit((d) =>
+                                        move(
+                                          d.topics[ti].modules[mi].lessons[li]
+                                            .mediaIds,
+                                          index,
+                                          index - 1,
+                                        ),
+                                      )
+                                    }
+                                    aria-label={
+                                      "Subir archivo " +
+                                      (file?.originalFileName ?? id)
+                                    }
+                                  >
+                                    Subir
+                                  </Button>
+                                  <Button
+                                    onClick={() =>
+                                      edit((d) => {
+                                        d.topics[ti].modules[mi].lessons[
+                                          li
+                                        ].mediaIds = d.topics[ti].modules[
+                                          mi
+                                        ].lessons[li].mediaIds.filter(
+                                          (value) => value !== id,
+                                        );
+                                      })
+                                    }
+                                    aria-label={
+                                      "Quitar archivo " +
+                                      (file?.originalFileName ?? id)
+                                    }
+                                  >
+                                    Quitar
+                                  </Button>
+                                </div>
+                              );
+                            })}
+                          </div>
                           <FormControlLabel
                             control={
                               <Switch
@@ -418,7 +626,21 @@ function CourseEditor({ initial }: { initial?: Course }) {
                                 })
                               }
                             >
-                              Mover lección arriba
+                              Subir lección
+                            </Button>
+                            <Button
+                              disabled={li === module.lessons.length - 1}
+                              onClick={() =>
+                                edit((d) =>
+                                  move(
+                                    d.topics[ti].modules[mi].lessons,
+                                    li,
+                                    li + 1,
+                                  ),
+                                )
+                              }
+                            >
+                              Bajar lección
                             </Button>
                             <Button
                               color="error"
@@ -639,6 +861,21 @@ function CourseEditor({ initial }: { initial?: Course }) {
           )}
         </div>
       )}
+      <div className="wizard-controls">
+        <Button disabled={tab === 0} onClick={() => setTab(tab - 1)}>
+          Anterior
+        </Button>
+        <span>Paso {tab + 1} de 3</span>
+        {tab < 2 ? (
+          <Button variant="contained" onClick={() => setTab(tab + 1)}>
+            Siguiente
+          </Button>
+        ) : (
+          <Button variant="contained" disabled={busy} onClick={() => save()}>
+            Guardar borrador de curso
+          </Button>
+        )}
+      </div>
     </section>
   );
 }

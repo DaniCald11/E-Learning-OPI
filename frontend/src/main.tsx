@@ -32,7 +32,7 @@ const theme = createTheme({
           padding: "13px 23px",
           borderRadius: 50,
           transition: "background .2s, transform .2s",
-          "&:hover": { transform: "translateY(-2px)" },
+          "&:hover": { boxShadow: "0 3px 12px #173e3115" },
         },
         outlined: { borderColor: "#cad2c7" },
       },

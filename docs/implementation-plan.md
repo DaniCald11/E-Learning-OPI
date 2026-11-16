@@ -46,7 +46,8 @@ validadas. Véase phase0-validation.md. Fase 1 entregada. El usuario autorizó F
 ## Entrega de Fase 1
 
 Identidad, persistencia y frontend implementados; véase phase1-validation.md para
-los archivos, pruebas y limitaciones. Fase 2 autorizada y en implementación; la siguiente fase requiere nueva autorización.
+los archivos, pruebas y limitaciones. Fase 2 implementada y entregada para revisión;
+la siguiente fase requiere nueva autorización.
 
 ## Confirmaciones de Fase 2
 
@@ -59,3 +60,10 @@ y phase2-validation.md. Fase 3 espera revisión y autorización.
 Catálogo, editor y biblioteca local validados; consulte phase2-validation.md.
 Adaptadores externos implementados, verificación real pendiente de configuración.
 Fase 3 no iniciada y requiere autorización tras revisar esta entrega.
+
+La revisión de experiencia de Fase 2 añade navegación administrativa independiente,
+perfil con foto/descripción, carpetas vacías y movimiento de archivos, continuidad
+de borradores al navegar/recargar, selección clara de varios materiales por lección,
+precio y portada corregidos y publicación con guardado integrado. La paleta se
+conserva y las animaciones son sobrias. Véase phase2-checklist.md para el alcance
+funcional revisable; no se adelantó comercio, progreso ni emisión de documentos.
