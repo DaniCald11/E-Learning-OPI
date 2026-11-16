@@ -1,3 +1,4 @@
+using System.Data;
 using EduLearning.Application.Catalog;
 using EduLearning.Infrastructure.Catalog;
 using EduLearning.Infrastructure.Persistence;
@@ -41,7 +42,9 @@ public sealed class MediaController(
         CancellationToken cancellationToken
     )
     {
-        folder = await MediaFoldersController.ResolveAsync(db, folder);
+        var selectedFolder = await MediaFoldersController.FindAsync(db, folder);
+        var folderId = selectedFolder?.Id;
+        folder = selectedFolder?.Name ?? "";
         await using var source = file.OpenReadStream();
         var media = await storage.SaveAsync(
             source,
@@ -53,7 +56,18 @@ public sealed class MediaController(
         );
         try
         {
+            await using var transaction = await db.Database.BeginTransactionAsync(
+                IsolationLevel.Serializable
+            );
+            media.Folder = folderId is null
+                ? ""
+                : await db
+                    .MediaFolders.Where(x => x.Id == folderId)
+                    .Select(x => x.Name)
+                    .SingleOrDefaultAsync()
+                    ?? "";
             await catalog.AddMediaAsync(media);
+            await transaction.CommitAsync();
         }
         catch
         {
@@ -77,10 +91,14 @@ public sealed class MediaController(
     [HttpPatch("{id:guid}")]
     public async Task<IActionResult> Move(Guid id, MoveMediaRequest input)
     {
+        await using var transaction = await db.Database.BeginTransactionAsync(
+            IsolationLevel.Serializable
+        );
         var media = await db.MediaFiles.SingleOrDefaultAsync(x => x.Id == id && x.Kind == "Library")
             ?? throw new CatalogException("Archivo no encontrado.", 404);
         media.Folder = await MediaFoldersController.ResolveAsync(db, input.Folder);
         await db.SaveChangesAsync();
+        await transaction.CommitAsync();
         return NoContent();
     }
 

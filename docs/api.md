@@ -57,6 +57,8 @@ el esquema automáticamente fuera de desarrollo.
 | GET | /admin/media/{id}/content | Archivo privado o reproducción Stream firmada; Admin |
 | POST | /admin/media/{id}/refresh | Actualizar procesamiento Stream |
 | GET/POST | /admin/media-folders | Listar/crear carpetas; JSON name, máximo 100 |
+| PATCH | /admin/media-folders/{id} | Renombrar carpeta y actualizar metadatos de sus archivos; JSON name |
+| DELETE | /admin/media-folders/{id} | Eliminar carpeta; conserva archivos en Sin carpeta y sus referencias |
 
 Mutaciones siguen exigiendo CSRF, incluidas cargas multipart y PUT. Propiedades
 Type/Status se serializan como nombres, no números. Temas/módulos/lecciones y
@@ -71,3 +73,21 @@ los endpoints de biblioteca/portadas; solo por /users/me/avatar de su propietari
 
 La calificación, intentos, derechos de compra y finalización de alumnos no forman
 parte de estos endpoints. Ninguna ficha pública habilita una compra todavía.
+
+## Revisión de requisitos de talleres
+
+CourseView incluye hasUnpublishedChanges y workshopIssues. La lista administrativa
+calcula los requisitos sobre la última versión publicada, con una consulta agrupada
+a los videos referenciados, evitando una consulta por curso. workshopIssues está
+pensado para la selección de cursos de un taller, no para bloquear un curso individual.
+
+Publicar una formación valida los archivos referenciados por su snapshot: al menos
+un video Ready en una lección obligatoria por curso del taller y cuestionario válido.
+El MIME del archivo determina si es video; una etiqueta Document no lo invalida.
+Los errores incluyen título y número de versión publicada. Guardar un cuestionario
+solo en borrador no cambia el snapshot utilizado por la formación.
+
+Renombrar/eliminar carpetas y mover archivos son operaciones transaccionales. Una
+carga en curso vuelve a resolver el ID de la carpeta al guardar sus metadatos;
+si se renombró, usa el nombre actual, y si se eliminó, conserva el archivo sin carpeta.
+No se altera ninguna clave de almacenamiento ni referencia de curso.

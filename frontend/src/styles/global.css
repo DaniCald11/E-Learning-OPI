@@ -1612,6 +1612,305 @@ button:focus-visible {
     max-width: 100%;
   }
 }
+
+/* More green surfaces, with motion that follows the architectural illustration. */
+.home-hero {
+  background: linear-gradient(125deg, #173e31, #204936);
+  border-radius: 28px;
+  padding: 48px;
+  margin: 32px 0;
+  gap: 38px;
+  color: #f4f7ec;
+}
+.home-hero .eyebrow {
+  color: #d7ebc2;
+}
+.home-hero .live-dot {
+  background: #d5f58a;
+  box-shadow: 0 0 0 4px #d5f58a18;
+}
+.home-hero h1 {
+  font-size: clamp(44px, 4.9vw, 74px);
+  letter-spacing: -3px;
+}
+.home-hero h1 span {
+  color: #d5f58a;
+}
+.home-hero .hero-copy > p {
+  color: #c0d3bc;
+}
+.home-hero .hero-caption {
+  color: #bdd1b4;
+}
+.home-hero .caption-line {
+  background: #9dbb8c;
+}
+.home-hero .hero-art {
+  background: #244e3c;
+  border: 1px solid #a8c68c35;
+  height: 490px;
+}
+.home-hero .hero-actions .MuiButton-contained,
+.home-invitation .MuiButton-contained {
+  background: #d5f58a;
+  color: #173e31;
+}
+.home-hero .hero-actions .MuiButton-contained:hover,
+.home-invitation .MuiButton-contained:hover {
+  background: #e1f7ae;
+}
+.home-hero .hero-actions .MuiButton-text {
+  color: #eef5e2;
+}
+.home-hero .plan-outline {
+  stroke-dasharray: 1;
+  animation: plan-draw 2.2s ease-out both;
+}
+.plan-trace {
+  display: none;
+}
+.home-hero .plan-trace {
+  display: block;
+  stroke-dasharray: 0.18 0.82;
+  animation: plan-trace 4s ease-in-out 0.5s 3 both;
+}
+.learning-strip {
+  background: #e9f0df;
+  border: 0;
+  border-radius: 14px;
+  padding: 24px 30px;
+}
+.learning-strip > span {
+  color: #476243;
+}
+.home-bottom .value-card:nth-child(2) {
+  background: #173e31;
+  color: #eef5e2;
+}
+.home-bottom .value-card:nth-child(2) > span,
+.home-bottom .value-card:nth-child(2) p {
+  color: #c1d5b5;
+}
+.home-bottom .value-card:nth-child(2) > svg {
+  color: #d5f58a;
+}
+.home-invitation {
+  margin: 0 0 55px;
+  padding: 38px 42px;
+  border-radius: 22px;
+  background: #173e31;
+  color: #f1f5e8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 30px;
+}
+.home-invitation .eyebrow {
+  color: #c3d9ac;
+}
+.home-invitation h2 {
+  font-weight: 500;
+  font-size: clamp(25px, 2.7vw, 36px);
+  line-height: 1.25;
+  letter-spacing: -1px;
+  margin: 18px 0;
+}
+.home-invitation p {
+  color: #bdd0b7;
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0;
+}
+.home-invitation .MuiButton-root {
+  flex-shrink: 0;
+}
+.workflow-card:first-child {
+  background: #173e31;
+  color: #edf5e2;
+  border-color: #173e31;
+}
+.workflow-card:first-child p,
+.workflow-card:first-child .workflow-number {
+  color: #c3d7b8;
+}
+.workflow-card:first-child .workflow-action {
+  border-color: #bad09e40;
+}
+.workflow-card:first-child > svg {
+  color: #d5f58a;
+}
+.profile-layout .profile-summary {
+  background: #173e31;
+  color: #f1f5e8;
+}
+.profile-summary .status-chip {
+  color: #173e31;
+}
+.profile-summary.account-card p {
+  color: #c3d7b8;
+}
+.profile-summary .profile-photo-actions .MuiButton-root {
+  color: #f0f5e5;
+  border-color: #aec798;
+}
+.profile-summary .profile-photo-actions small {
+  color: #c3d7b8;
+}
+.profile-summary .profile-bio {
+  border-color: #aec79855;
+}
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #d2dec6;
+  background: #fff;
+  border-radius: 28px;
+  padding: 3px;
+  max-width: 100%;
+}
+.folder-item > .MuiButton-root {
+  border: 0;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.folder-item .MuiIconButton-root {
+  flex-shrink: 0;
+}
+.lesson-materials {
+  display: grid;
+  gap: 12px;
+}
+.lesson-materials .add-material-button {
+  justify-self: start;
+}
+.material-option-detail {
+  display: block;
+  font-size: 11px;
+  color: #63745d;
+  margin-top: 3px;
+}
+.course-choice-wrap {
+  border: 1px solid #dce4d4;
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+.course-choice-wrap .course-choice {
+  border: 0;
+  padding: 6px 0;
+}
+.course-version-note,
+.course-readiness-issue {
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 5px 0 8px 42px;
+}
+.course-version-note {
+  color: #5c6c50;
+}
+.course-readiness-issue {
+  color: #8a4a16;
+}
+.course-admin-card > small {
+  display: block;
+  color: #6b6027;
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 8px 0 14px;
+}
+@keyframes plan-draw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0.25;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+@keyframes plan-trace {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.8;
+  }
+  100% {
+    stroke-dashoffset: -1;
+    opacity: 0;
+  }
+}
+@supports (animation-timeline: view()) {
+  .home-bottom .value-card,
+  .home-invitation {
+    animation: home-reveal linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 90%;
+  }
+}
+@keyframes home-reveal {
+  from {
+    opacity: 0.35;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 1000px) {
+  .home-hero {
+    padding: 30px;
+    gap: 24px;
+  }
+  .home-hero h1 {
+    font-size: clamp(40px, 5.1vw, 58px);
+  }
+}
+@media (max-width: 700px) {
+  .home-hero {
+    padding: 28px 20px;
+    margin: 22px 0;
+    gap: 30px;
+  }
+  .home-hero h1 {
+    font-size: clamp(36px, 8.5vw, 53px);
+    letter-spacing: -1.8px;
+  }
+  .home-hero .hero-art {
+    height: 430px;
+  }
+  .home-hero .art-label {
+    left: 20px;
+    font-size: 8px;
+  }
+  .home-hero .art-bottom {
+    left: 20px;
+    right: 20px;
+    font-size: 6px;
+    gap: 12px;
+  }
+  .home-hero .professional-visual {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .learning-strip {
+    padding: 22px;
+  }
+  .home-invitation {
+    padding: 28px 24px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .course-version-note,
+  .course-readiness-issue {
+    margin-left: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *:before,

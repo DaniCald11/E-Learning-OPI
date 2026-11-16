@@ -21,8 +21,83 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
             RowVersion = Convert.ToBase64String(course.RowVersion),
         };
 
-    private static CourseView View(Course c) =>
-        new(c.Id, Read(c), c.Status, c.Versions.Count == 0 ? 0 : c.Versions.Max(v => v.Number));
+    private static CourseDraft? LatestContent(Course course) =>
+        course.Versions.OrderByDescending(x => x.Number).FirstOrDefault() is { } version
+            ? JsonSerializer.Deserialize<CourseDraft>(version.SnapshotJson, Json)!
+            : null;
+
+    private async Task<CourseView[]> CourseViewsAsync(params Course[] courses)
+    {
+        var contents = courses.Select(LatestContent).ToArray();
+        var materialIds = contents
+            .Where(x => x is not null)
+            .SelectMany(x => x!.Topics)
+            .SelectMany(x => x.Modules)
+            .SelectMany(x => x.Lessons)
+            .SelectMany(x => x.MediaIds)
+            .Distinct()
+            .ToArray();
+        var videos = (
+            await db
+                .MediaFiles.Where(x =>
+                    materialIds.Contains(x.Id)
+                    && x.Kind == "Library"
+                    && x.ProcessingStatus == "Ready"
+                    && x.ContentType.StartsWith("video/")
+                )
+                .Select(x => x.Id)
+                .ToArrayAsync()
+        ).ToHashSet();
+        return courses
+            .Select(
+                (course, index) =>
+                {
+                    var content = contents[index];
+                    var issues = new List<string>();
+                    if (course.Status != PublicationStatus.Published || content is null)
+                        issues.Add(
+                            "Publica una versión del curso antes de incluirlo en una formación."
+                        );
+                    else
+                    {
+                        try
+                        {
+                            CatalogRules.ValidateCourse(content, true, true);
+                        }
+                        catch (CatalogException error)
+                        {
+                            issues.Add(error.Message);
+                        }
+                        if (!HasRequiredVideo(content, videos))
+                            issues.Add(
+                                "Añade un video a una lección obligatoria y publica la nueva versión del curso."
+                            );
+                    }
+                    return new CourseView(
+                        course.Id,
+                        Read(course),
+                        course.Status,
+                        course.Versions.Count == 0 ? 0 : course.Versions.Max(v => v.Number),
+                        content is null
+                            || JsonSerializer.Serialize(
+                                Read(course) with
+                                {
+                                    RowVersion = null,
+                                },
+                                Json
+                            ) != JsonSerializer.Serialize(content, Json),
+                        issues.ToArray()
+                    );
+                }
+            )
+            .ToArray();
+    }
+
+    private static bool HasRequiredVideo(CourseDraft content, IReadOnlySet<Guid> videos) =>
+        content
+            .Topics.SelectMany(x => x.Modules)
+            .SelectMany(x => x.Lessons)
+            .Any(x => x.IsRequired && x.MediaIds.Any(videos.Contains));
 
     private static ProductDraft Read(Product p) =>
         new(
@@ -74,22 +149,21 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
     }
 
     public async Task<CourseView[]> CoursesAsync() =>
-        (
+        await CourseViewsAsync(
             await db
                 .Courses.Include(x => x.Versions)
                 .OrderByDescending(x => x.UpdatedAtUtc)
                 .ToArrayAsync()
-        )
-            .Select(View)
-            .ToArray();
+        );
 
     private async Task<Course> FindCourse(Guid id) =>
         await db.Courses.Include(x => x.Versions).SingleOrDefaultAsync(x => x.Id == id)
         ?? throw new CatalogException("Curso no encontrado.", 404);
 
-    public async Task<CourseView> CourseAsync(Guid id) => View(await FindCourse(id));
+    public async Task<CourseView> CourseAsync(Guid id) =>
+        (await CourseViewsAsync(await FindCourse(id))).Single();
 
-    private async Task ValidateMedia(CourseDraft input, bool publishing)
+    private async Task ValidateMedia(CourseDraft input, bool publishing, bool workshop = false)
     {
         var lessons = input.Topics.SelectMany(x => x.Modules).SelectMany(x => x.Lessons).ToArray();
         var ids = lessons.SelectMany(x => x.MediaIds).Distinct().ToArray();
@@ -100,6 +174,19 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
             throw new CatalogException("Espera a que termine el procesamiento de los materiales.");
         if (media.Length != ids.Length)
             throw new CatalogException("Un material no existe en la biblioteca.");
+        if (
+            workshop
+            && !HasRequiredVideo(
+                input,
+                media
+                    .Where(x => x.ContentType.StartsWith("video/") && x.ProcessingStatus == "Ready")
+                    .Select(x => x.Id)
+                    .ToHashSet()
+            )
+        )
+            throw new CatalogException(
+                "Falta un video en una lección obligatoria. Añádelo y publica una nueva versión del curso."
+            );
         if (
             publishing
             && lessons.Any(l =>
@@ -133,7 +220,7 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
         c.DraftJson = JsonSerializer.Serialize(input with { RowVersion = null }, Json);
         c.UpdatedAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        return View(c);
+        return (await CourseViewsAsync(c)).Single();
     }
 
     public async Task<CourseView> PublishCourseAsync(Guid id)
@@ -158,7 +245,7 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
         c.UpdatedAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync();
         await tx.CommitAsync();
-        return View(c);
+        return (await CourseViewsAsync(c)).Single();
     }
 
     public async Task<CourseView> ArchiveCourseAsync(Guid id)
@@ -181,7 +268,7 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
         c.Status = PublicationStatus.Archived;
         await db.SaveChangesAsync();
         await tx.CommitAsync();
-        return View(c);
+        return (await CourseViewsAsync(c)).Single();
     }
 
     public async Task<ProductView[]> ProductsAsync() =>
@@ -317,9 +404,22 @@ public sealed class CatalogService(ApplicationDbContext db) : ICatalogService
             var course = courses.Single(x => x.Id == membership.CourseId);
             var version = course.Versions.OrderByDescending(x => x.Number).FirstOrDefault();
             if (course.Status != PublicationStatus.Published || version is null)
-                throw new CatalogException("Todos los cursos deben tener una versión publicada.");
+                throw new CatalogException(
+                    $"«{course.Title}»: publica una versión del curso antes de publicar la formación."
+                );
             var content = JsonSerializer.Deserialize<CourseDraft>(version.SnapshotJson, Json)!;
-            CatalogRules.ValidateCourse(content, true, p.Type == ProductType.Workshop);
+            try
+            {
+                CatalogRules.ValidateCourse(content, true, p.Type == ProductType.Workshop);
+                await ValidateMedia(content, true, p.Type == ProductType.Workshop);
+            }
+            catch (CatalogException error)
+            {
+                throw new CatalogException(
+                    $"«{course.Title}», versión publicada {version.Number}: {error.Message}",
+                    error.Status
+                );
+            }
             var outline = content.Topics.Select(t => new
             {
                 t.Id,

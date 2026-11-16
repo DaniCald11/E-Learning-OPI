@@ -1356,4 +1356,274 @@ public sealed class AuthTests(AuthFixture fixture) : IClassFixture<AuthFixture>
             await db.Database.EnsureDeletedAsync();
         }
     }
+
+    [Fact]
+    public async Task Folder_rename_and_delete_preserve_files_and_course_references()
+    {
+        using var admin = await AdminAsync();
+        var course = await CourseAsync(admin);
+        var courseId = course.GetProperty("id").GetGuid();
+        var mediaId = course
+            .GetProperty("draft")
+            .GetProperty("topics")[0]
+            .GetProperty("modules")[0]
+            .GetProperty("lessons")[0]
+            .GetProperty("mediaIds")[0]
+            .GetGuid();
+        var original = "Original " + Guid.NewGuid().ToString("N");
+        var renamed = "Renamed " + Guid.NewGuid().ToString("N");
+        var result = await fixture.SendAsync(
+            admin,
+            "/api/v1/admin/media-folders",
+            new { name = original }
+        );
+        var id = (await result.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id")
+            .GetGuid();
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media/" + mediaId,
+                    new { folder = original },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media-folders/" + id,
+                    new { name = renamed },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        var files = await admin.GetFromJsonAsync<JsonElement[]>("/api/v1/admin/media");
+        Assert.Equal(
+            renamed,
+            files!
+                .Single(x => x.GetProperty("id").GetGuid() == mediaId)
+                .GetProperty("folder")
+                .GetString()
+        );
+        await fixture.SendAsync(admin, "/api/v1/admin/media-folders", new { name = original });
+        Assert.Equal(
+            HttpStatusCode.Conflict,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media-folders/" + id,
+                    new { name = original },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        Assert.Contains(renamed, await admin.GetStringAsync("/api/v1/admin/media-folders"));
+        using var student = fixture.Client();
+        var email = await fixture.RegisterAsync(student);
+        await fixture.SendAsync(
+            student,
+            "/api/v1/auth/login",
+            new { email, password = fixture.Password }
+        );
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (
+                await fixture.SendAsync(
+                    student,
+                    "/api/v1/admin/media-folders/" + id,
+                    new { name = "Otro" },
+                    HttpMethod.Patch
+                )
+            ).StatusCode
+        );
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (
+                await fixture.SendAsync(
+                    student,
+                    "/api/v1/admin/media-folders/" + id,
+                    null,
+                    HttpMethod.Delete
+                )
+            ).StatusCode
+        );
+        Assert.Equal(
+            HttpStatusCode.NoContent,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media-folders/" + id,
+                    null,
+                    HttpMethod.Delete
+                )
+            ).StatusCode
+        );
+        files = await admin.GetFromJsonAsync<JsonElement[]>("/api/v1/admin/media");
+        Assert.Equal(
+            "",
+            files!
+                .Single(x => x.GetProperty("id").GetGuid() == mediaId)
+                .GetProperty("folder")
+                .GetString()
+        );
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await admin.GetAsync("/api/v1/admin/media/" + mediaId + "/content")).StatusCode
+        );
+        var current = await admin.GetFromJsonAsync<JsonElement>(
+            "/api/v1/admin/courses/" + courseId
+        );
+        Assert.Equal(
+            mediaId,
+            current
+                .GetProperty("draft")
+                .GetProperty("topics")[0]
+                .GetProperty("modules")[0]
+                .GetProperty("lessons")[0]
+                .GetProperty("mediaIds")[0]
+                .GetGuid()
+        );
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (
+                await fixture.SendAsync(
+                    admin,
+                    "/api/v1/admin/media-folders/" + id,
+                    null,
+                    HttpMethod.Delete
+                )
+            ).StatusCode
+        );
+    }
+
+    [Fact]
+    public async Task Workshop_detects_real_mp4_in_required_document_lesson_and_rejects_optional_video()
+    {
+        using var admin = await AdminAsync();
+        var course = await CourseAsync(admin);
+        var id = course.GetProperty("id").GetGuid();
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var draft = course
+            .GetProperty("draft")
+            .Deserialize<EduLearning.Application.Catalog.CourseDraft>(options)!;
+        var token = await admin.GetFromJsonAsync<JsonElement>("/api/v1/auth/csrf");
+        using var data = new MultipartFormDataContent();
+        var pdf = new ByteArrayContent(Encoding.ASCII.GetBytes("%PDF-1.4\n%%EOF"));
+        pdf.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+            "application/pdf"
+        );
+        data.Add(pdf, "file", "resource.pdf");
+        using var upload = new HttpRequestMessage(HttpMethod.Post, "/api/v1/admin/media")
+        {
+            Content = data,
+        };
+        upload.Headers.Add("X-CSRF-TOKEN", token.GetProperty("token").GetString());
+        var uploaded = await admin.SendAsync(upload);
+        Assert.Equal(HttpStatusCode.OK, uploaded.StatusCode);
+        var pdfId = (await uploaded.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("id")
+            .GetGuid();
+        var lesson = draft.Topics[0].Modules[0].Lessons[0] with
+        {
+            Type = "Document",
+            MediaIds = [.. draft.Topics[0].Modules[0].Lessons[0].MediaIds, pdfId],
+        };
+        draft.Topics[0].Modules[0].Lessons[0] = lesson;
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await fixture.SendAsync(admin, "/api/v1/admin/courses/" + id, draft, HttpMethod.Put)
+            ).StatusCode
+        );
+        var publication = await fixture.SendAsync(
+            admin,
+            "/api/v1/admin/courses/" + id + "/publish"
+        );
+        Assert.Equal(HttpStatusCode.OK, publication.StatusCode);
+        var view = await publication.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Empty(view.GetProperty("workshopIssues").EnumerateArray());
+        var product = await ProductAsync(admin, id);
+        var productId = product.GetProperty("id").GetGuid();
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (
+                await fixture.SendAsync(admin, "/api/v1/admin/products/" + productId + "/publish")
+            ).StatusCode
+        );
+        draft = view.GetProperty("draft")
+            .Deserialize<EduLearning.Application.Catalog.CourseDraft>(options)!;
+        draft.Topics[0].Modules[0] = draft.Topics[0].Modules[0] with
+        {
+            Lessons =
+            [
+                lesson with
+                {
+                    IsRequired = false,
+                },
+                new(Guid.NewGuid(), "PDF obligatorio", "Document", true, [pdfId]),
+            ],
+        };
+        await fixture.SendAsync(admin, "/api/v1/admin/courses/" + id, draft, HttpMethod.Put);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await fixture.SendAsync(admin, "/api/v1/admin/courses/" + id + "/publish")).StatusCode
+        );
+        var rejected = await fixture.SendAsync(
+            admin,
+            "/api/v1/admin/products/" + productId + "/publish"
+        );
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Contains(
+            "video en una lección obligatoria",
+            (await rejected.Content.ReadFromJsonAsync<JsonElement>())
+                .GetProperty("title")
+                .GetString()
+        );
+    }
+
+    [Fact]
+    public async Task Workshop_explains_published_version_when_quiz_is_only_in_draft()
+    {
+        using var admin = await AdminAsync();
+        var old = await CourseAsync(admin, false);
+        var withQuiz = await CourseAsync(admin);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var draft = old.GetProperty("draft")
+            .Deserialize<EduLearning.Application.Catalog.CourseDraft>(options)! with
+        {
+            Quiz = withQuiz
+                .GetProperty("draft")
+                .Deserialize<EduLearning.Application.Catalog.CourseDraft>(options)!
+                .Quiz,
+        };
+        var id = old.GetProperty("id").GetGuid();
+        var saved = await fixture.SendAsync(
+            admin,
+            "/api/v1/admin/courses/" + id,
+            draft,
+            HttpMethod.Put
+        );
+        var view = await saved.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.True(view.GetProperty("hasUnpublishedChanges").GetBoolean());
+        Assert.Contains("cuestionario", view.GetProperty("workshopIssues").ToString());
+        var product = await ProductAsync(admin, id);
+        var route = "/api/v1/admin/products/" + product.GetProperty("id").GetGuid() + "/publish";
+        var rejected = await fixture.SendAsync(admin, route);
+        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        var error = (await rejected.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("title")
+            .GetString();
+        Assert.Contains("versión publicada 1", error);
+        Assert.Contains("cuestionario", error);
+        var published = await fixture.SendAsync(admin, "/api/v1/admin/courses/" + id + "/publish");
+        view = await published.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.False(view.GetProperty("hasUnpublishedChanges").GetBoolean());
+        Assert.Empty(view.GetProperty("workshopIssues").EnumerateArray());
+        Assert.Equal(HttpStatusCode.OK, (await fixture.SendAsync(admin, route)).StatusCode);
+    }
 }

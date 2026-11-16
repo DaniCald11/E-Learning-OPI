@@ -63,15 +63,9 @@ public static class CatalogRules
             throw new CatalogException(
                 "Publicar requiere temas, módulos, lecciones, materiales y al menos una lección obligatoria."
             );
-        if (
-            workshop
-            && (
-                draft.Quiz is null
-                || !lessons.Any(x => x.IsRequired && x.Type is "Video" or "Mixed")
-            )
-        )
+        if (workshop && draft.Quiz is null)
             throw new CatalogException(
-                "Cada curso de taller requiere videos obligatorios y un cuestionario."
+                "Falta el cuestionario del curso. Créalo y publica una nueva versión del curso."
             );
         if (draft.Quiz is { } quiz)
         {

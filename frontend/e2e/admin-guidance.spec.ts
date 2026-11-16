@@ -41,9 +41,11 @@ test("admin distingue ordenar contenido, cargar PDF y crear taller", async ({
     .click();
   await page.getByLabel("Tipo de contenido").click();
   await page.getByRole("option", { name: "Documento", exact: true }).click();
-  await page.getByLabel("Materiales de biblioteca").click();
-  await page.getByRole("option", { name: "ventas.jpg", exact: true }).click();
-  await page.keyboard.press("Escape");
+  await page
+    .getByRole("combobox", { name: "Buscar material por nombre" })
+    .fill("ventas");
+  await page.getByRole("option", { name: "ventas.jpg", exact: false }).click();
+  await page.getByRole("button", { name: "Añadir", exact: true }).click();
   await expect(page.getByText("Falta un PDF.", { exact: false })).toBeVisible();
   await expect(
     page.getByRole("link", {

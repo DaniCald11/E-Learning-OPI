@@ -97,3 +97,23 @@ MediaFolders permite crear carpetas vacías y mover archivos por nombre canónic
 El perfil añade Bio y una referencia a MediaFile de tipo Avatar con propietario.
 Las consultas y validación de medios de cursos/portadas solo aceptan Library,
 para que una foto personal no pueda convertirse accidentalmente en contenido público.
+
+
+## Revisión de biblioteca y requisitos de taller
+
+El renombrado actualiza el registro de carpeta y los nombres canónicos de sus archivos
+en una transacción. Eliminar solo quita la carpeta y mueve sus metadatos a Sin carpeta;
+las claves de almacenamiento y referencias de lecciones/versiones no cambian.
+Una carga conserva el ID de destino y vuelve a resolver el nombre al persistir,
+para respetar un renombrado o eliminación concurrentes sin perder el archivo.
+
+La detección de video obligatorio del taller se basa en medios Ready y MIME de video
+asociados a lecciones obligatorias, independientemente de la etiqueta de contenido.
+CatalogRules mantiene la validación estructural/cuestionario; CatalogService valida
+las referencias y MIME. La formación siempre usa el snapshot publicado. CourseView
+informa hasUnpublishedChanges y workshopIssues, calculados sobre esa versión mediante
+una consulta de medios agrupada; el editor no hace una consulta por curso.
+
+Guardar curso vuelve al listado con confirmación enfocada y desplazamiento visible.
+Publicar conserva el flujo del editor y sus errores. LessonMaterials separa buscar,
+seleccionar y Añadir, manteniendo varios archivos asociados por lección.

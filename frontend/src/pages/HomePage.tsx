@@ -90,6 +90,28 @@ export function HomePage() {
           </p>
         </div>
       </section>
+      <section className="home-invitation">
+        <div>
+          <span className="eyebrow">SIGUE CONSTRUYENDO TU EXPERIENCIA</span>
+          <h2>
+            El siguiente paso en tu carrera
+            <br />
+            empieza con lo que aprendes hoy.
+          </h2>
+          <p>
+            Encuentra una formación que se adapte a tus objetivos y a tus
+            horarios.
+          </p>
+        </div>
+        <Button
+          component={RouterLink}
+          to="/catalogo"
+          variant="contained"
+          endIcon={<Icon />}
+        >
+          Ver catálogo
+        </Button>
+      </section>
     </>
   );
 }

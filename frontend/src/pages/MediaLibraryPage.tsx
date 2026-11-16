@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogTitle,
   InputAdornment,
+  IconButton,
   MenuItem,
   TextField,
 } from "@mui/material";
@@ -40,6 +41,8 @@ export function MediaLibraryPage() {
   const [folder, setFolder] = useState("/all");
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Folder | null>(null);
+  const [deleting, setDeleting] = useState<Folder | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -69,6 +72,8 @@ export function MediaLibraryPage() {
           <Button
             variant="outlined"
             onClick={() => {
+              setEditing(null);
+              setName("");
               setOpen(true);
               setError("");
             }}
@@ -123,6 +128,10 @@ export function MediaLibraryPage() {
           label="Carpeta actual"
           select
           value={folder}
+          slotProps={{
+            select: { displayEmpty: true },
+            inputLabel: { shrink: true },
+          }}
           onChange={(e) => setFolder(e.target.value)}
           helperText={
             folder === "/all"
@@ -160,17 +169,45 @@ export function MediaLibraryPage() {
               !filter || f.name.toLowerCase().includes(filter.toLowerCase()),
           )
           .map((f) => (
-            <Button
-              key={f.id}
-              variant={folder === f.name ? "contained" : "outlined"}
-              startIcon={<Icon name="folder" />}
-              onClick={() => setFolder(f.name)}
-            >
-              {f.name}
-            </Button>
+            <div className="folder-item" key={f.id}>
+              <Button
+                disabled={busy}
+                variant={folder === f.name ? "contained" : "outlined"}
+                startIcon={<Icon name="folder" />}
+                onClick={() => setFolder(f.name)}
+              >
+                {f.name}
+              </Button>
+              <IconButton
+                size="small"
+                disabled={busy}
+                aria-label={"Editar carpeta " + f.name}
+                title="Cambiar nombre"
+                onClick={() => {
+                  setEditing(f);
+                  setName(f.name);
+                  setError("");
+                  setOpen(true);
+                }}
+              >
+                <Icon name="edit" size={18} />
+              </IconButton>
+              <IconButton
+                size="small"
+                disabled={busy}
+                aria-label={"Eliminar carpeta " + f.name}
+                title="Eliminar carpeta"
+                onClick={() => {
+                  setDeleting(f);
+                  setError("");
+                }}
+              >
+                <Icon name="trash" size={18} />
+              </IconButton>
+            </div>
           ))}
       </div>
-      {error && <Alert severity="error">{error}</Alert>}
+      {error && !open && !deleting && <Alert severity="error">{error}</Alert>}
       {notice && <Alert severity="success">{notice}</Alert>}
       {(query.isError || folders.isError) && (
         <Alert severity="error">
@@ -224,6 +261,10 @@ export function MediaLibraryPage() {
                 fullWidth
                 sx={{ mt: 2 }}
                 value={m.folder}
+                slotProps={{
+                  select: { displayEmpty: true },
+                  inputLabel: { shrink: true },
+                }}
                 onChange={async (event) => {
                   setError("");
                   try {
@@ -267,7 +308,9 @@ export function MediaLibraryPage() {
         </div>
       )}
       <Dialog open={open} onClose={() => !busy && setOpen(false)}>
-        <DialogTitle>Crear carpeta</DialogTitle>
+        <DialogTitle>
+          {editing ? "Editar carpeta" : "Crear carpeta"}
+        </DialogTitle>
         <DialogContent>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
@@ -277,7 +320,11 @@ export function MediaLibraryPage() {
             slotProps={{ htmlInput: { maxLength: 100 } }}
             onChange={(e) => setName(e.target.value)}
             sx={{ mt: 1 }}
-            helperText="Puedes crearla vacía y añadir archivos después."
+            helperText={
+              editing
+                ? "Los archivos conservarán sus asociaciones con los cursos."
+                : "Puedes crearla vacía y añadir archivos después."
+            }
           />
         </DialogContent>
         <DialogActions>
@@ -290,14 +337,23 @@ export function MediaLibraryPage() {
               setBusy(true);
               setError("");
               try {
-                const result = await mutate("/admin/media-folders", { name });
+                const result = await mutate(
+                  "/admin/media-folders" + (editing ? "/" + editing.id : ""),
+                  { name },
+                  editing ? "patch" : "post",
+                );
                 await client.invalidateQueries({
                   queryKey: ["admin-media-folders"],
                 });
+                await client.invalidateQueries({ queryKey: ["admin-media"] });
                 setFolder(result.data.name);
                 setOpen(false);
                 setName("");
-                setNotice("Carpeta creada.");
+                setNotice(
+                  editing
+                    ? "Nombre de carpeta actualizado."
+                    : "Carpeta creada.",
+                );
               } catch (e) {
                 setError(errorMessage(e));
               } finally {
@@ -305,7 +361,57 @@ export function MediaLibraryPage() {
               }
             }}
           >
-            Crear carpeta
+            {editing ? "Guardar nombre" : "Crear carpeta"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={Boolean(deleting)}
+        onClose={() => !busy && setDeleting(null)}
+      >
+        <DialogTitle>Eliminar carpeta</DialogTitle>
+        <DialogContent>
+          {error && <Alert severity="error">{error}</Alert>}
+          <p>¿Eliminar la carpeta «{deleting?.name}»?</p>
+          <p>
+            Los archivos pasarán a «Sin carpeta». No se borrarán y seguirán
+            disponibles en los cursos donde ya los añadiste.
+          </p>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={busy} onClick={() => setDeleting(null)}>
+            Cancelar
+          </Button>
+          <Button
+            color="error"
+            disabled={busy}
+            onClick={async () => {
+              if (!deleting) return;
+              setBusy(true);
+              setError("");
+              try {
+                await mutate(
+                  "/admin/media-folders/" + deleting.id,
+                  undefined,
+                  "delete",
+                );
+                if (folder === deleting.name) setFolder("");
+                await client.invalidateQueries({
+                  queryKey: ["admin-media-folders"],
+                });
+                await client.invalidateQueries({ queryKey: ["admin-media"] });
+                setDeleting(null);
+                setNotice(
+                  "Carpeta eliminada. Sus archivos están en Sin carpeta.",
+                );
+              } catch (e) {
+                setError(errorMessage(e));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Eliminar carpeta
           </Button>
         </DialogActions>
       </Dialog>

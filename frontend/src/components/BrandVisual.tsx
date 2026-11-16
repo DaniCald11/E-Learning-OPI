@@ -11,7 +11,15 @@ export function BrandVisual({ compact = false }: { compact?: boolean }) {
         <g stroke="currentColor" strokeWidth="1.25">
           <path
             className="plan-outline"
+            pathLength="1"
             d="M35 251h290M70 251V97l102-49 102 49v154M172 48v203M274 130l40 19v102M93 108l55-26v144H93zM194 83l55 27v116h-55zM93 144h55m-55 40h55m46-39h55m-55 40h55M113 99v127m103-132v132M286 161v65m15-58v58M58 263h268"
+          />
+          <path
+            className="plan-trace"
+            pathLength="1"
+            d="M35 251h35V97l102-49 102 49v154h40v-102l-40-19"
+            stroke="#d5f58a"
+            strokeWidth="2"
           />
           <path
             opacity=".35"

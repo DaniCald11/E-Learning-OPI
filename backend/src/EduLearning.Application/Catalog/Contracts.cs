@@ -39,7 +39,9 @@ public sealed record CourseView(
     Guid Id,
     CourseDraft Draft,
     PublicationStatus Status,
-    int PublishedVersion
+    int PublishedVersion,
+    bool HasUnpublishedChanges,
+    string[] WorkshopIssues
 );
 
 public sealed record ProductCourseInput(Guid CourseId, int Position, bool IsRequired);

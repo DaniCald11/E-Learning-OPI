@@ -13,7 +13,7 @@ test("admin crea curso con video y cuestionario, publica taller y visitante cons
     ),
   );
   const suffix = randomBytes(5).toString("hex"),
-    filename = `video-${suffix}.webm`,
+    filename = `video-${suffix}.mp4`,
     course = `Curso de prueba ${suffix}`,
     workshop = `Taller de prueba ${suffix}`;
   await page.goto("/login");
@@ -36,11 +36,11 @@ test("admin crea curso con video y cuestionario, publica taller y visitante cons
     context.fillStyle = "#173e31";
     context.fillRect(0, 0, 320, 180);
     const stream = canvas.captureStream(10),
-      recorder = new MediaRecorder(stream, { mimeType: "video/webm" }),
+      recorder = new MediaRecorder(stream, { mimeType: "video/mp4" }),
       chunks: Blob[] = [];
     recorder.ondataavailable = (e) => chunks.push(e.data);
     const done = new Promise<Blob>((resolve) => {
-      recorder.onstop = () => resolve(new Blob(chunks, { type: "video/webm" }));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: "video/mp4" }));
     });
     recorder.start();
     setTimeout(() => recorder.stop(), 300);
@@ -50,7 +50,7 @@ test("admin crea curso con video y cuestionario, publica taller y visitante cons
   });
   await page.locator("input[type=file]").setInputFiles({
     name: filename,
-    mimeType: "video/webm",
+    mimeType: "video/mp4",
     buffer: Buffer.from(bytes),
   });
   await expect(
@@ -71,9 +71,11 @@ test("admin crea curso con video y cuestionario, publica taller y visitante cons
   await page
     .getByRole("button", { name: "+ Agregar lección", exact: true })
     .click();
-  await page.getByLabel("Materiales de biblioteca").click();
-  await page.getByRole("option", { name: filename, exact: true }).click();
-  await page.keyboard.press("Escape");
+  await page
+    .getByRole("combobox", { name: "Buscar material por nombre" })
+    .fill(filename);
+  await page.getByRole("option", { name: filename, exact: false }).click();
+  await page.getByRole("button", { name: "Añadir", exact: true }).click();
   await page.getByRole("tab", { name: "Cuestionario", exact: true }).click();
   await page
     .getByRole("button", { name: "Crear cuestionario", exact: true })
@@ -89,7 +91,14 @@ test("admin crea curso con video y cuestionario, publica taller y visitante cons
   await page
     .getByRole("button", { name: "Guardar curso", exact: true })
     .click();
-  await expect(page).toHaveURL(/admin\/cursos\/.+\/editar/);
+  await expect(page).toHaveURL(/\/admin\/cursos$/);
+  await expect(
+    page.getByText("Borrador guardado: " + course + ".", { exact: true }),
+  ).toBeInViewport();
+  await page
+    .getByRole("link")
+    .filter({ has: page.getByRole("heading", { name: course, exact: true }) })
+    .click();
   await page
     .getByRole("button", { name: "Publicar versión", exact: true })
     .click();

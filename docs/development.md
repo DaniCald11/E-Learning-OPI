@@ -153,7 +153,8 @@ importa las carpetas existentes y conserva usuarios y archivos.
 Flujo: Panel administrativo → Biblioteca → Cursos → Formaciones y talleres.
 Mi cuenta contiene perfil y cierre de sesión. Los editores conservan trabajo sin
 guardar y pestaña/paso en la misma pestaña del navegador, incluso al recargar.
-Guardar curso/Guardar borrador persiste en la cuenta. Cerrar sesión limpia la copia
+Guardar curso persiste en la cuenta y vuelve al listado Cursos con una confirmación
+visible. Guardar borrador de formación mantiene su asistente. Cerrar sesión limpia la copia
 local. Consulta la [checklist funcional](phase2-checklist.md) para revisar la entrega.
 
 ### Cloudflare para medios reales
@@ -182,3 +183,19 @@ no se expone StorageKey a visitantes. El bucket debe seguir privado.
 No se configuraron cuentas ni se validaron cargas reales R2/Stream en esta instancia.
 Antes de producción comprobar subida, procesamiento, firma, caducidad y permisos de
 bucket con las cuentas elegidas. SES sigue pendiente de remitente/cuenta verificados.
+
+### Revisión de carpetas y publicación de talleres
+
+Esta revisión no cambia el esquema SQL ni añade dependencias. Después de actualizar
+`develop`, reinicia API y frontend. Si aún no aplicaste ProfileAndMediaFolders,
+ejecuta migrate antes del arranque como se indica arriba.
+
+En Biblioteca puedes editar/eliminar carpetas. Eliminar conserva sus archivos en
+Sin carpeta. En la lección, busca por nombre, selecciona un material y pulsa Añadir;
+seleccionar sin Añadir no modifica la lección. Repite para agregar varios materiales.
+
+Una formación usa la última versión publicada de cada curso. Tras guardar cambios
+en videos/cuestionario, abre el curso y publica una nueva versión. La selección de
+cursos indica cambios pendientes y requisitos; el error de publicación identifica
+el curso y la versión que los incumplen. No se publican borradores de cursos de
+forma implícita ni se modifican versiones anteriores.

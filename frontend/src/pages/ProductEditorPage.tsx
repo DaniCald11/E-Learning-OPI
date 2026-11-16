@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { SetStateAction } from "react";
 import { useEditorDraft } from "../features/catalog/useEditorDraft";
+import { SaveFeedback } from "../components/SaveFeedback";
 import {
+  Link as RouterLink,
   useLocation,
   useNavigate,
   useParams,
@@ -231,8 +233,8 @@ function ProductEditor({
           Guardar borrador
         </Button>
       </div>
-      {error && <Alert severity="error">{error}</Alert>}
-      {notice && <Alert severity="success">{notice}</Alert>}
+      {error && <SaveFeedback severity="error" message={error} />}
+      {notice && <SaveFeedback message={notice} />}
       {!notice && saved?.status === "Published" && !dirty && (
         <Alert severity="success">
           Formación publicada. Ya está disponible en el catálogo.
@@ -363,33 +365,60 @@ function ProductEditor({
               Selecciona cursos existentes; no se duplica su contenido. Todos
               son obligatorios en talleres.
             </p>
+            <Alert role="status" severity="info">
+              Se usa la última versión publicada de cada curso. Si añadiste
+              videos o cuestionarios y solo guardaste el borrador, publica la
+              nueva versión desde Cursos antes de publicar esta formación.
+            </Alert>
             {courses.data?.map((c) => (
-              <label className="course-choice" key={c.id}>
-                <Checkbox
-                  checked={draft.courses.some((x) => x.courseId === c.id)}
-                  onChange={(_, checked) =>
-                    edit({
-                      courses: (checked
-                        ? [
-                            ...draft.courses,
-                            {
-                              courseId: c.id,
-                              position: draft.courses.length + 1,
-                              isRequired: true,
-                            },
-                          ]
-                        : draft.courses.filter((x) => x.courseId !== c.id)
-                      ).map((x, i) => ({ ...x, position: i + 1 })),
-                    })
-                  }
-                />
-                <span>
-                  {c.draft.title}
-                  <small>
-                    Versión publicada {c.publishedVersion || "ninguna"}
-                  </small>
-                </span>
-              </label>
+              <div className="course-choice-wrap" key={c.id}>
+                <label className="course-choice">
+                  <Checkbox
+                    checked={draft.courses.some((x) => x.courseId === c.id)}
+                    onChange={(_, checked) =>
+                      edit({
+                        courses: (checked
+                          ? [
+                              ...draft.courses,
+                              {
+                                courseId: c.id,
+                                position: draft.courses.length + 1,
+                                isRequired: true,
+                              },
+                            ]
+                          : draft.courses.filter((x) => x.courseId !== c.id)
+                        ).map((x, i) => ({ ...x, position: i + 1 })),
+                      })
+                    }
+                  />
+                  <span>
+                    {c.draft.title}
+                    <small>
+                      Versión publicada {c.publishedVersion || "ninguna"}
+                    </small>
+                  </span>
+                </label>
+                {c.hasUnpublishedChanges && c.publishedVersion > 0 && (
+                  <p className="course-version-note">
+                    Hay cambios guardados que todavía no se han publicado.
+                  </p>
+                )}
+                {draft.type === "Workshop" &&
+                  draft.courses.some((value) => value.courseId === c.id) &&
+                  c.workshopIssues?.map((issue) => (
+                    <p className="course-readiness-issue" key={issue}>
+                      {issue}
+                    </p>
+                  ))}
+                <Button
+                  component={RouterLink}
+                  to={"/admin/cursos/" + c.id + "/editar"}
+                  size="small"
+                  aria-label={"Editar curso " + c.draft.title}
+                >
+                  Editar curso
+                </Button>
+              </div>
             ))}
             <h3>Orden del recorrido</h3>
             <p className="auth-description">

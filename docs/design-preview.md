@@ -3,8 +3,11 @@
 Paleta original conservada: verde profundo, fondo cálido y lima. Presentación
 orientada a formación profesional inmobiliaria, componentes Material UI y tipografía
 con jerarquía. La ilustración representa una construcción mediante trazos de plano.
-Las animaciones son discretas y acotadas: entrada suave, foco, transiciones de borde
-y sombra; no hay estrellas, giros ni elementos flotando continuamente.
+Inicio incorpora un bloque principal verde, banda verde clara, tarjeta de beneficios
+y cierre con acceso al catálogo. También vuelven las superficies verdes al perfil
+y al panel. El plano se dibuja al entrar y un acento de luz lo recorre tres veces;
+las secciones aparecen al desplazarse y mantienen transiciones de borde/sombra.
+No hay estrellas, giros ni elementos flotando continuamente.
 Se respeta prefers-reduced-motion.
 
 ## Inicio

@@ -57,6 +57,8 @@ export interface Course {
   draft: CourseDraft;
   status: Status;
   publishedVersion: number;
+  hasUnpublishedChanges?: boolean;
+  workshopIssues?: string[];
 }
 export interface ProductDraft {
   title: string;

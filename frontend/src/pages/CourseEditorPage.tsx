@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useEditorDraft } from "../features/catalog/useEditorDraft";
+import { LessonMaterials } from "../features/catalog/LessonMaterials";
+import { SaveFeedback } from "../components/SaveFeedback";
 import type { SetStateAction, DragEvent } from "react";
 import {
   Link as RouterLink,
@@ -15,7 +17,6 @@ import {
   Alert,
   Button,
   Chip,
-  Checkbox,
   CircularProgress,
   FormControlLabel,
   MenuItem,
@@ -129,12 +130,15 @@ function CourseEditor({ initial }: { initial?: Course }) {
       if (redirect) setNotice("Borrador guardado.");
       client.setQueryData(["course-edit", course.id], course);
       await client.invalidateQueries({ queryKey: ["admin-courses"] });
-      if (!saved && redirect) {
+      if (redirect) {
         editor.clear();
         navigating = true;
-        navigate("/admin/cursos/" + course.id + "/editar", {
+        navigate("/admin/cursos", {
           replace: true,
-          state: { tab, editorNotice: "Borrador guardado." },
+          state: {
+            savedCourseId: course.id,
+            editorNotice: `Borrador guardado: ${course.draft.title}.`,
+          },
         });
       }
       return course;
@@ -244,8 +248,8 @@ function CourseEditor({ initial }: { initial?: Course }) {
         </Button>
       )}
       {dirty && <Chip size="small" label="Cambios sin guardar" />}
-      {error && <Alert severity="error">{error}</Alert>}
-      {notice && <Alert severity="success">{notice}</Alert>}
+      {error && <SaveFeedback severity="error" message={error} />}
+      {notice && <SaveFeedback message={notice} />}
       {!notice && saved?.status === "Published" && !dirty && (
         <Alert severity="success">
           Versión publicada. Este curso ya está disponible para crear
@@ -478,40 +482,51 @@ function CourseEditor({ initial }: { initial?: Course }) {
                               ))}
                             </TextField>
                           </div>
-                          <TextField
-                            label="Materiales de biblioteca"
-                            helperText={
-                              lesson.type === "Document"
-                                ? "Para publicar una lección de documento, selecciona al menos un PDF. Las imágenes no sustituyen el PDF."
-                                : "Selecciona el video y los recursos que ya cargaste en la biblioteca."
-                            }
-                            select
-                            slotProps={{
-                              select: {
-                                multiple: true,
-                                renderValue: (selected) =>
-                                  `${(selected as string[]).length} archivo(s) seleccionado(s)`,
-                              },
-                            }}
-                            value={lesson.mediaIds}
-                            onChange={(e) =>
+                          <LessonMaterials
+                            files={media.data ?? []}
+                            ids={lesson.mediaIds}
+                            loading={media.isPending}
+                            onAdd={(file) =>
                               edit((d) => {
-                                d.topics[ti].modules[mi].lessons[li].mediaIds =
-                                  typeof e.target.value === "string"
-                                    ? e.target.value.split(",")
-                                    : e.target.value;
+                                const target =
+                                  d.topics[ti].modules[mi].lessons[li];
+                                target.mediaIds.push(file.id);
+                                const attached = (media.data ?? []).filter(
+                                  (value) => target.mediaIds.includes(value.id),
+                                );
+                                const hasVideo = attached.some((value) =>
+                                  value.contentType.startsWith("video/"),
+                                );
+                                if (hasVideo)
+                                  target.type = attached.some(
+                                    (value) =>
+                                      !value.contentType.startsWith("video/"),
+                                  )
+                                    ? "Mixed"
+                                    : "Video";
+                                else if (file.contentType === "application/pdf")
+                                  target.type = "Document";
                               })
                             }
-                          >
-                            {media.data?.map((m) => (
-                              <MenuItem key={m.id} value={m.id}>
-                                <Checkbox
-                                  checked={lesson.mediaIds.includes(m.id)}
-                                />
-                                {m.originalFileName}
-                              </MenuItem>
-                            ))}
-                          </TextField>
+                            onRemove={(id) =>
+                              edit((d) => {
+                                const target =
+                                  d.topics[ti].modules[mi].lessons[li];
+                                target.mediaIds = target.mediaIds.filter(
+                                  (value) => value !== id,
+                                );
+                              })
+                            }
+                            onMove={(from, to) =>
+                              edit((d) =>
+                                move(
+                                  d.topics[ti].modules[mi].lessons[li].mediaIds,
+                                  from,
+                                  to,
+                                ),
+                              )
+                            }
+                          />
                           {lesson.type === "Document" &&
                             lesson.mediaIds.length > 0 &&
                             media.data &&
@@ -533,74 +548,6 @@ function CourseEditor({ initial }: { initial?: Course }) {
                           >
                             Ir a Biblioteca para cargar archivos
                           </Button>
-                          <div
-                            className="lesson-material-list"
-                            aria-label="Archivos de la lección"
-                          >
-                            <p className="auth-description">
-                              Una lección puede tener varios videos, PDF y
-                              recursos. Selecciona todos los que necesites.
-                            </p>
-                            {lesson.mediaIds.map((id, index) => {
-                              const file = media.data?.find((m) => m.id === id);
-                              return (
-                                <div className="material-row" key={id}>
-                                  <span>
-                                    <b>
-                                      {file?.originalFileName ??
-                                        "Archivo no disponible"}
-                                    </b>
-                                    <small>
-                                      {file?.contentType.startsWith("video/")
-                                        ? "Video"
-                                        : file?.contentType ===
-                                            "application/pdf"
-                                          ? "PDF"
-                                          : "Recurso"}
-                                    </small>
-                                  </span>
-                                  <Button
-                                    disabled={index === 0}
-                                    onClick={() =>
-                                      edit((d) =>
-                                        move(
-                                          d.topics[ti].modules[mi].lessons[li]
-                                            .mediaIds,
-                                          index,
-                                          index - 1,
-                                        ),
-                                      )
-                                    }
-                                    aria-label={
-                                      "Subir archivo " +
-                                      (file?.originalFileName ?? id)
-                                    }
-                                  >
-                                    Subir
-                                  </Button>
-                                  <Button
-                                    onClick={() =>
-                                      edit((d) => {
-                                        d.topics[ti].modules[mi].lessons[
-                                          li
-                                        ].mediaIds = d.topics[ti].modules[
-                                          mi
-                                        ].lessons[li].mediaIds.filter(
-                                          (value) => value !== id,
-                                        );
-                                      })
-                                    }
-                                    aria-label={
-                                      "Quitar archivo " +
-                                      (file?.originalFileName ?? id)
-                                    }
-                                  >
-                                    Quitar
-                                  </Button>
-                                </div>
-                              );
-                            })}
-                          </div>
                           <FormControlLabel
                             control={
                               <Switch

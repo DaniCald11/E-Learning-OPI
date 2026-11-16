@@ -21,8 +21,9 @@ con API, SQL Server y almacenamiento de desarrollo funcionando.
 
 - [x] Conservar verde profundo, fondo cálido y acentos lima.
 - [x] Inicio con enfoque en profesionalización inmobiliaria y aprendizaje a tu ritmo.
-- [x] Ilustración arquitectónica y transiciones discretas; sin estrellas, órbitas,
-  giros ni movimientos flotantes continuos. Respetar movimiento reducido.
+- [x] Ilustración arquitectónica con trazado animado, acento de luz acotado y aparición
+  de secciones; más paneles verdes en Inicio, panel y perfil. Sin estrellas ni
+  giros; respetar movimiento reducido.
 - [x] Navegación: Inicio → Catálogo → Panel administrativo → Mi cuenta.
   El panel solo aparece para Admin; visitantes ven acceso y registro.
 - [x] Mi cuenta despliega Mi perfil y Cerrar sesión.
@@ -48,6 +49,8 @@ El administrador inicial ya está confirmado. Las credenciales locales están en
 ## Biblioteca del administrador
 
 - [x] Crear carpetas vacías y seleccionar dónde cargar los archivos nuevos.
+- [x] Editar nombres de carpetas conservando sus archivos y asociaciones.
+- [x] Eliminar carpetas con confirmación: sus archivos pasan a Sin carpeta y no se borran.
 - [x] Ver todos los archivos o una carpeta, incluida la vista Sin carpeta.
 - [x] Mover archivos existentes entre carpetas.
 - [x] Buscar archivos o carpetas con un campo identificado por una lupa.
@@ -57,8 +60,8 @@ El administrador inicial ya está confirmado. Las credenciales locales están en
 - [x] Consultar el procesamiento del video cuando se utiliza Stream.
 - [x] Volver al editor desde Biblioteca conservando el contenido pendiente.
 
-Las carpetas son de un nivel. Renombrarlas, borrarlas y borrar archivos no son
-acciones implementadas en esta entrega. Las cargas son secuenciales; si una falla,
+Las carpetas son de un nivel. Eliminar una carpeta no elimina archivos;
+borrar archivos de la biblioteca no es una acción implementada en esta entrega. Las cargas son secuenciales; si una falla,
 se informa cuántos archivos se alcanzaron a guardar.
 
 ## Cursos y cuestionarios
@@ -69,13 +72,16 @@ se informa cuántos archivos se alcanzaron a guardar.
 - [x] Reordenar con Subir/Bajar y arrastre. El primer elemento no puede subir y el
   último no puede bajar: estos controles cambian orden, no cargan archivos.
 - [x] Configurar lecciones Video, Documento o Mixto y si son obligatorias.
-- [x] Asociar varios videos, PDF y recursos a una misma lección; ver la selección
-  completa, quitar referencias y ordenar materiales.
+- [x] Buscar materiales por nombre, seleccionar un archivo y pulsar Añadir; repetir
+  para agregar varios videos, PDF y recursos a una misma lección.
+- [x] Ver la lista de archivos añadidos, quitar referencias y ordenar materiales.
+  Añadir un video junto a recursos ajusta el tipo a Videos y recursos.
 - [x] Advertir si una lección Documento carece de PDF; la publicación valida los
   archivos requeridos y rechaza medios que no están listos.
 - [x] Crear y editar cuestionario: preguntas, opciones, puntos y una respuesta
   correcta por pregunta. Validar el cuestionario antes de publicarlo.
-- [x] Guardar el agregado completo como borrador en SQL Server.
+- [x] Guardar el agregado completo como borrador en SQL Server y volver al listado
+  Cursos con la confirmación enfocada y visible, tanto al crear como al editar.
 - [x] Publicar versiones y archivar cursos conservando las versiones anteriores.
 - [x] Detectar ediciones concurrentes y rechazar una revisión obsoleta.
 
@@ -105,7 +111,10 @@ conserva localmente mientras se completa.
 - [x] Ordenar la composición. Todos los cursos del taller son obligatorios en el MVP.
 - [x] Un curso individual incluye exactamente un curso. Un curso incluido en un
   taller publicado no se puede publicar a la venta individual, ni a la inversa.
-- [x] Exigir video y cuestionario publicables por curso de taller.
+- [x] Exigir video y cuestionario publicables por curso de taller. El video se detecta
+  por el archivo asociado a una lección obligatoria, no por la etiqueta del tipo.
+- [x] Mostrar versión publicada, cambios aún en borrador y requisitos faltantes
+  en la selección de cursos. Un rechazo identifica curso y versión afectados.
 - [x] Escribir precio en MXN con `$` y `MXN`, hasta dos decimales, sin flechas numéricas.
 - [x] Seleccionar una portada de la biblioteca y verla en la vista previa del borrador.
 - [x] Mostrar requisitos faltantes y errores de publicación comprensibles.

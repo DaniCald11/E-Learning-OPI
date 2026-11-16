@@ -156,10 +156,19 @@ test("flujo de revisión: borrador, biblioteca, múltiples materiales, precio, p
   await expect(page.getByLabel("Título del tema 1")).toHaveValue(
     "Tema conservado",
   );
-  await page.getByLabel("Materiales de biblioteca").click();
-  for (const file of files)
+  for (const file of files) {
+    await page
+      .getByRole("combobox", { name: "Buscar material por nombre" })
+      .fill(file.name);
     await page.getByRole("option", { name: file.name, exact: false }).click();
-  await page.keyboard.press("Escape");
+    await expect(page.getByLabel("Archivos de la lección")).not.toContainText(
+      file.name,
+    );
+    await page.getByRole("button", { name: "Añadir", exact: true }).click();
+    await expect(page.getByLabel("Archivos de la lección")).toContainText(
+      file.name,
+    );
+  }
   await expect(page.getByLabel("Archivos de la lección")).toContainText(
     files[0].name,
   );
@@ -304,4 +313,109 @@ test("cerrar sesión limpia borradores locales y deja el perfil fuera del panel"
   await expect(
     page.getByLabel("Título del curso", { exact: true }),
   ).toHaveValue("");
+});
+
+test("renombrar y eliminar carpetas conserva archivos; guardar curso vuelve al listado y enfoca la confirmación", async ({
+  page,
+}) => {
+  const suffix = randomBytes(4).toString("hex");
+  const folder = "Carpeta de prueba " + suffix;
+  const renamed = "Carpeta editada " + suffix;
+  const title = "Borrador guardado de prueba " + suffix;
+  const filename = "imagen-" + suffix + ".png";
+  await login(page);
+  await page.goto("/admin/biblioteca");
+  await page
+    .getByRole("button", { name: "Nueva carpeta", exact: true })
+    .click();
+  await page.getByLabel("Nombre de carpeta").fill(folder);
+  await page
+    .getByRole("button", { name: "Crear carpeta", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await page
+    .locator("input[type=file]")
+    .setInputFiles({
+      name: filename,
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a/csAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
+  await expect(
+    page.getByRole("heading", { name: filename, exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Editar carpeta " + folder, exact: true })
+    .click();
+  await page.getByLabel("Nombre de carpeta").fill(renamed);
+  await page
+    .getByRole("button", { name: "Guardar nombre", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.getByLabel("Carpeta de " + filename)).toHaveText(renamed);
+  await page
+    .getByRole("button", { name: "Eliminar carpeta " + renamed, exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toContainText("No se borrarán");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Eliminar carpeta", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).not.toBeVisible();
+  await expect(page.getByLabel("Carpeta de " + filename)).toHaveText(
+    "Sin carpeta",
+  );
+  await expect(
+    page.getByRole("button", { name: renamed, exact: true }),
+  ).toHaveCount(0);
+  const preview = page
+    .getByRole("heading", { name: filename, exact: true })
+    .locator("..")
+    .locator("img");
+  await expect
+    .poll(() =>
+      preview.evaluate((image: HTMLImageElement) => image.naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  await page.goto("/admin/cursos/nuevo");
+  await page.getByLabel("Título del curso", { exact: true }).fill(title);
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  for (let i = 0; i < 7; i++)
+    await page
+      .getByRole("button", { name: "+ Agregar tema", exact: true })
+      .click();
+  await page.getByRole("button", { name: "Siguiente", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Guardar borrador de curso", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/cursos$/);
+  const notice = page.getByText("Borrador guardado: " + title + ".", {
+    exact: true,
+  });
+  await expect(notice).toBeInViewport();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Borrador guardado:" }),
+  ).toBeFocused();
+  const card = page
+    .getByRole("link")
+    .filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  await expect(card).toContainText("Borrador");
+  await card.click();
+  await expect(
+    page.getByLabel("Título del curso", { exact: true }),
+  ).toHaveValue(title);
+  await page
+    .getByLabel("Descripción del curso")
+    .fill("Descripción actualizada de prueba.");
+  await page
+    .getByRole("button", { name: "Guardar curso", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/cursos$/);
+  await expect(notice).toBeInViewport();
+  await card.click();
+  await expect(page.getByLabel("Descripción del curso")).toHaveValue(
+    "Descripción actualizada de prueba.",
+  );
 });

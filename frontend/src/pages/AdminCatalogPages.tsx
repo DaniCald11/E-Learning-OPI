@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { api, errorMessage, mutate } from "../services/api";
 import { Icon } from "../components/Icon";
+import { SaveFeedback } from "../components/SaveFeedback";
 import {
   money,
   slugify,
@@ -197,6 +198,7 @@ export function AdminProductsPage() {
   );
 }
 export function AdminCoursesPage() {
+  const location = useLocation();
   const query = useQuery({
     queryKey: ["admin-courses"],
     queryFn: async () => (await api.get<Course[]>("/admin/courses")).data,
@@ -217,6 +219,9 @@ export function AdminCoursesPage() {
           Nuevo curso
         </Button>
       </div>
+      {location.state?.editorNotice && (
+        <SaveFeedback message={location.state.editorNotice} />
+      )}
       <Alert severity="info" sx={{ mb: 3 }}>
         Aquí preparas el contenido: temas, módulos, lecciones y cuestionario.
         Para agrupar cursos en un taller, entra en «Formaciones y talleres» y
@@ -241,6 +246,9 @@ export function AdminCoursesPage() {
                 {c.draft.topics.length} temas · Versión{" "}
                 {c.publishedVersion || "sin publicar"}
               </p>
+              {c.hasUnpublishedChanges && c.publishedVersion > 0 && (
+                <small>Cambios guardados pendientes de publicar</small>
+              )}
               <span>Editar curso ↗</span>
             </RouterLink>
           ))}
