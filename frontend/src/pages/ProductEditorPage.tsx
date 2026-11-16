@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -38,6 +38,8 @@ const blank: ProductDraft = {
 };
 export function ProductEditorPage() {
   const { id } = useParams();
+  const [params] = useSearchParams();
+  const initialType: ProductType = params.get("tipo") === "Workshop" ? "Workshop" : "IndividualCourse";
   const query = useQuery({
     queryKey: ["product-edit", id],
     enabled: Boolean(id),
@@ -46,10 +48,10 @@ export function ProductEditorPage() {
   if (id && query.isPending) return <CircularProgress />;
   if (id && query.isError)
     return <Alert severity="error">No se pudo cargar la formación.</Alert>;
-  return <ProductEditor key={id ?? "new"} initial={query.data} />;
+  return <ProductEditor key={id ?? "new-" + initialType} initial={query.data} initialType={initialType} />;
 }
-function ProductEditor({ initial }: { initial?: Product }) {
-  const [draft, setDraft] = useState(initial?.draft ?? blank);
+function ProductEditor({ initial, initialType }: { initial?: Product; initialType: ProductType }) {
+  const [draft, setDraft] = useState(initial?.draft ?? {...blank, type: initialType});
   const [saved, setSaved] = useState(initial);
   const [step, setStep] = useState(0);
   const [dirty, setDirty] = useState(false);

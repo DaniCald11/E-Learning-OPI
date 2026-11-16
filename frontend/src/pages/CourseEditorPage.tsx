@@ -203,6 +203,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
           />
         </div>
       )}
+      {tab === 1 && <Alert severity="info" sx={{mb:2}}>Organiza el curso en temas, módulos y lecciones. Guarda todo con «Guardar curso». Los controles «Mover arriba» cambian el orden; los archivos se cargan en Biblioteca.</Alert>}
       {tab === 1 && (
         <div className="editor-panel">
           {draft.topics.map((topic, ti) => (
@@ -244,7 +245,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                         })
                       }
                     >
-                      Subir
+                      Mover arriba
                     </Button>
                     <Button
                       disabled={ti === draft.topics.length - 1}
@@ -257,7 +258,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                         })
                       }
                     >
-                      Bajar
+                      Mover abajo
                     </Button>
                     <Button
                       color="error"
@@ -302,7 +303,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                             })
                           }
                         >
-                          Subir módulo
+                          Mover módulo arriba
                         </Button>
                         <Button
                           onClick={() =>
@@ -371,6 +372,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                           </div>
                           <TextField
                             label="Materiales de biblioteca"
+                            helperText={lesson.type === "Document" ? "Para publicar una lección de documento, selecciona al menos un PDF. Las imágenes no sustituyen el PDF." : "Selecciona el video y los recursos que ya cargaste en la biblioteca."}
                             select
                             slotProps={{ select: { multiple: true } }}
                             value={lesson.mediaIds}
@@ -389,6 +391,8 @@ function CourseEditor({ initial }: { initial?: Course }) {
                               </MenuItem>
                             ))}
                           </TextField>
+                          {lesson.type === "Document" && lesson.mediaIds.length > 0 && media.data && !media.data.some(m => lesson.mediaIds.includes(m.id) && m.contentType === "application/pdf") && <Alert severity="warning">Falta un PDF. Puedes guardar el borrador, pero esta lección no se puede publicar solo con imágenes.</Alert>}
+                          <Button href="/admin/biblioteca" target="_blank" rel="noopener noreferrer">Subir archivos a la biblioteca ↗</Button>
                           <FormControlLabel
                             control={
                               <Switch
@@ -414,7 +418,7 @@ function CourseEditor({ initial }: { initial?: Course }) {
                                 })
                               }
                             >
-                              Subir lección
+                              Mover lección arriba
                             </Button>
                             <Button
                               color="error"

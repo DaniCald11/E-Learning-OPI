@@ -62,3 +62,16 @@ Las pruebas E2E conservan contenido ficticio rotulado "de prueba" en la base loc
 No son datos comerciales. No se ejecutó GitHub Actions desde este chat: se validaron
 sus comandos localmente. Vite conserva una advertencia no bloqueante por el chunk
 base de aproximadamente 502 kB (163 kB gzip); las páginas se cargan de forma diferida.
+
+## Aclaración del editor tras revisión del administrador
+
+Los botones de reordenación indican «Mover arriba/abajo» para diferenciarlos de
+la carga de archivos. El editor explica que los temas se guardan con Guardar curso,
+que una lección Documento necesita PDF para publicarse y permite abrir Biblioteca
+en otra pestaña sin abandonar el borrador. Advierte ante imágenes sin PDF.
+
+Navegación diferenciada: Contenido de cursos / Formaciones y talleres. Nuevo taller
+abre el asistente con Workshop seleccionado, sin cambiar la edición de productos
+existentes. Build y lint correctos; una prueba Playwright adicional con respuestas
+API simuladas verifica etiquetas, aviso PDF y selección inicial de taller. Esta
+prueba de interfaz no sustituye los tres recorridos anteriores con API/SQL reales.

@@ -29,8 +29,8 @@ import type {
 export function AdminNav() {
   return (
     <nav className="admin-tabs" aria-label="Administración de contenido">
-      <RouterLink to="/admin/formaciones">Formaciones</RouterLink>
-      <RouterLink to="/admin/cursos">Cursos</RouterLink>
+      <RouterLink to="/admin/formaciones">Formaciones y talleres</RouterLink>
+      <RouterLink to="/admin/cursos">Contenido de cursos</RouterLink>
       <RouterLink to="/admin/biblioteca">Biblioteca</RouterLink>
       <RouterLink to="/admin">Mi cuenta</RouterLink>
     </nav>
@@ -72,7 +72,9 @@ export function AdminProductsPage() {
         >
           Nueva formación
         </Button>
+        <Button component={RouterLink} to="/admin/formaciones/nueva?tipo=Workshop" variant="outlined">Nuevo taller</Button>
       </div>
+      <Alert severity="info" sx={{mb:3}}>Aquí creas lo que aparecerá en el catálogo. Un curso individual incluye un curso; un taller agrupa y ordena cursos existentes. Usa «Nuevo taller» para empezar directamente con ese tipo.</Alert>
       {error && <Alert severity="error">{error}</Alert>}
       <TextField
         label="Buscar formación"
@@ -176,6 +178,7 @@ export function AdminCoursesPage() {
           Nuevo curso
         </Button>
       </div>
+      <Alert severity="info" sx={{mb:3}}>Aquí preparas el contenido: temas, módulos, lecciones y cuestionario. Para agrupar cursos en un taller, entra en «Formaciones y talleres» y elige «Nuevo taller».</Alert>
       {query.isPending ? (
         <CircularProgress />
       ) : query.isError ? (
