@@ -69,6 +69,11 @@ Consúltalo localmente si necesitas entrar; no copies contraseñas al chat ni al
 No cambiar su AppDatabasePassword después de crear el login SQL sin coordinar el
 cambio de contraseña de SQL. No hay credenciales hardcodeadas en el código.
 
+En Windows puedes iniciar los comandos con `py`, por ejemplo
+`py scripts/dev.py setup`. El inicializador reutiliza ese mismo intérprete de
+Python y resuelve `npm.cmd` desde PATH para setup y frontend. Si acabas de instalar
+Python/Node, vuelve a abrir VS Code para actualizar PATH.
+
 Arrancar en dos terminales:
 ```bash
 python3 scripts/dev.py api

@@ -4,13 +4,20 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import subprocess
+import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / '.data'
 CONFIG = DATA / 'development.json'
 
 def run(args, *, env=None, cwd=ROOT, **kwargs):
+    if args[0] == 'npm' and os.name == 'nt':
+        executable = shutil.which('npm.cmd', path=(env or os.environ).get('PATH'))
+        if executable is None:
+            raise FileNotFoundError('No se encontró npm.cmd. Instala Node.js 24 LTS y vuelve a abrir VS Code.')
+        args = [executable, *args[1:]]
     return subprocess.run(args, cwd=cwd, env=env, check=True, **kwargs)
 
 def sql_admin_connection(database='master'):
@@ -34,7 +41,7 @@ def environment():
     return env
 
 def setup():
-    run(['python3', 'scripts/init-dev-env.py'])
+    run([sys.executable, 'scripts/init-dev-env.py'])
     DATA.mkdir(mode=0o700, exist_ok=True)
     if not CONFIG.exists():
         values = {
